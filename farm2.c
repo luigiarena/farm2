@@ -3,26 +3,30 @@
 #include <unistd.h>
 #include <signal.h>
 #include <getopt.h>
+
 #include "masterworker.h"
 #include "collector.h"
 
 #define NTHREAD_MIN			1
 #define NTHREAD_DEFAULT 	4
-#define PATHNAME_LEN	  255
 #define QLEN_DEFAULT		8
 #define TDELAY_DEFAULT		0
+#define DNAME_DEFAULT	 NULL
+#define DNAME_PATHLEN	  255
+
+
 
 // Funzione main per che lancia MasterWorker e fa partire il programma
 int main(int argc, char *argv[]){
 
 	// Dichiarazione e definizione delle variabili
 	pid_t pid;
-	int nthread = NTHREAD_DEFAULT;
-	int qlen = QLEN_DEFAULT;
-	int tdelay;
-	char *dirname;
+	int nthread = NTHREAD_DEFAULT;		// numero di threads
+	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
+	int tdelay = TDELAY_DEFAULT;							// tempo di ritardo nell'inserimento dei task
+	char *dname = DNAME_DEFAULT;					// path della directory da visitare
 
-    // Analizza gli argomenti dati in input -n
+    // Analizza i parametri dati in input -n
 	int opt;
     while ((opt = getopt(argc, argv, "n:q:d:t:")) != -1) {
         switch (opt) {
@@ -40,10 +44,17 @@ int main(int argc, char *argv[]){
                 tdelay = atoi(optarg);
                 break;
             case 'd':
-                dirname = optarg;
+                dname = optarg;
                 break;
+            case ':': {
+                fprintf(stderr, "L'opzione '-%c' richiede un argomento.\n", optopt);
+                exit(EXIT_FAILURE);
+            } break;
+            case '?': {
+                fprintf(stderr, "L'opzione '-%c' non è riconosciuta.\n", optopt);
+            } break;
             default:
-                fprintf(stderr, "Usage: %s [-n num_threads]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
