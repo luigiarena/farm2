@@ -12,6 +12,8 @@
 int main(int argc, char *argv[]){
 
 	pid_t pid;
+	int nthread;
+	int qlen;
 
 	// Ignora SIGPIPE per tutti
 	signal(SIGPIPE, SIG_IGN);
