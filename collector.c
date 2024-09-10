@@ -16,14 +16,16 @@ void Collector() {
     sigaddset(&set, SIGTERM);
     sigaddset(&set, SIGUSR1);
     sigaddset(&set, SIGUSR2);
+    
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1) {
         perror("Errore nel mascherare i segnali nel Collector");
         exit(EXIT_FAILURE);
     }
 
     // Rimanere attivo per testare i segnali
-    while (1) {
+    int i = 0;
+    while (++i < 5) {
         printf("Collector in esecuzione\n");
-        sleep(5);
+        sleep(1);
     }
 }

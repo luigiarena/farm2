@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
 #include "masterworker.h"
 #include "collector.h"
 
@@ -17,32 +18,32 @@
 #define TDELAY_DEFAULT					0
 #define DNAME_DEFAULT				 NULL
 #define DNAME_PATHLEN				  255
-#define SOCKETNAME			"./farm2.sck"
-#define SOCKETNAME_LEN				   11
+#define SOCKET_PATH			"./farm2.sck"
+#define SOCKET_PATH_LEN				   11
 
 struct sockaddr_un sa;
 
 // Funzione main per che lancia MasterWorker e fa partire il programma
 int main(int argc, char *argv[]){
 
-	// Dichiarazione e definizione delle variabili
+	// Dichiarazione e definizione di default delle variabili
 	pid_t pid;
 	int nthread = NTHREAD_DEFAULT;		// numero di threads
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
-	int tdelay = TDELAY_DEFAULT;							// tempo di ritardo nell'inserimento dei task
-	char *dname = DNAME_DEFAULT;					// path della directory da visitare
+	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
+	char *dname = DNAME_DEFAULT;		// path della directory da visitare
 
     // Analizza i parametri dati in input -n
 	int opt;
     while ((opt = getopt(argc, argv, "hn:q:d:t:")) != -1) {
         switch (opt) {
 			case 'h':
-    			printf("Options:\n");
-    			printf("\t-n nthread\tnumero iniziale di thread worker\t(default 1)\n");
-    			printf("\t-q qlen\t\tlunghezza della coda concorrente\t(default 8)\n");
-    			printf("\t-t tdelay\tritardo inserimento task nella coda\t(default 0)\n");
-    			printf("\t-d dname\tnaviga nella directory per cercare\n"
-					   "\t\t\tfile da leggere in input\t\t(default .)\n");
+    			printf("Opzioni:\n"
+    				"\t-n nthread\tnumero iniziale di thread worker\t(default 1)\n"
+    				"\t-q qlen\t\tlunghezza della coda concorrente\t(default 8)\n"
+    				"\t-t tdelay\tritardo inserimento task nella coda\t(default 0)\n"
+    				"\t-d dname\tnaviga nella directory per cercare\n"
+						"\t\t\tfile da leggere in input\t\t(default .)\n");
     			exit(EXIT_SUCCESS);
             case 'n':
                 nthread = atoi(optarg);
@@ -69,14 +70,21 @@ int main(int argc, char *argv[]){
                 dname = optarg;
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
+	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
+	/*
+	for(; optind < argc; optind++){      
+        printf("extra arguments: %s\n", argv[optind]);  
+    } 
+	*/
+
 	// Creo il file socket
     sa.sun_family = AF_UNIX;
-    strncpy(sa.sun_path, SOCKETNAME, strlen(SOCKETNAME)+1);
+    strncpy(sa.sun_path, SOCKET_PATH, strlen(SOCKET_PATH)+1);
 
 	// Ignora SIGPIPE per tutti
 	signal(SIGPIPE, SIG_IGN);
@@ -93,7 +101,7 @@ int main(int argc, char *argv[]){
 		Collector();
 	} else {
 		// padre: MasterWorker
-		MasterWorker();
+		MasterWorker(argv, argc, optind);
 	}
 
 	return 0;

@@ -1,3 +1,3 @@
 // header file per masterworker
 
-void MasterWorker();
+void MasterWorker(char * argv[], int argc, int opt);

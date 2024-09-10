@@ -30,7 +30,7 @@ void handle_signal(int sig_rec) {
     }
 }
 
-void MasterWorker() {
+void MasterWorker(char * argv[], int argc, int optind) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
 
     // Gestore segnali per il MasterWorker
@@ -41,9 +41,16 @@ void MasterWorker() {
     signal(SIGUSR1, handle_signal);
     signal(SIGUSR2, handle_signal);
 
+	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
+    // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
+	for(; optind < argc; optind++){      
+        printf("extra arguments: %s\n", argv[optind]);  
+    } 
+
     // Rimanere attivo per testare i segnali
-    while (1) {
+    int i = 0;
+    while (++i < 5) {
         printf("MasterWorker in esecuzione...\n");
-        sleep(5);
+        sleep(1);
     }
 }
