@@ -16,7 +16,6 @@
 #define NTHREAD_DEFAULT 				4
 #define QLEN_DEFAULT					8
 #define TDELAY_DEFAULT					0
-#define DNAME_DEFAULT				 NULL
 #define DNAME_PATHLEN				  255
 #define SOCKET_PATH			"./farm2.sck"
 #define SOCKET_PATH_LEN				   11
@@ -31,7 +30,7 @@ int main(int argc, char *argv[]){
 	int nthread = NTHREAD_DEFAULT;		// numero di threads
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
 	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
-	char *dname = DNAME_DEFAULT;		// path della directory da visitare
+	char *dname = NULL;		// path della directory da visitare
 
     // Analizza i parametri dati in input -n
 	int opt;
@@ -81,6 +80,11 @@ int main(int argc, char *argv[]){
         printf("extra arguments: %s\n", argv[optind]);  
     } 
 	*/
+    // Se non esistono argomenti e -d non è settato chiudo
+	if (optind >= argc && dname == NULL) {
+		fprintf(stderr, "Nessun argomento fornito al programma.\nChiusura di farm2.\n");
+		exit(EXIT_FAILURE);
+	}
 
 	// Creo il file socket
     sa.sun_family = AF_UNIX;
