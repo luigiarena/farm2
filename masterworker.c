@@ -1,10 +1,40 @@
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
+
+#include <dirent.h>
+#include <string.h>
+#include <sys/stat.h>
+
 #include "masterworker.h"
 
+void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int tdelay, char *dname) {
+    printf("Sono MasterWorker (PID: %d)\n", getpid());
+
+    // Gestore segnali per il MasterWorker
+    signal(SIGHUP, handler_signals);
+    signal(SIGINT, handler_signals);
+    signal(SIGQUIT, handler_signals);
+    signal(SIGTERM, handler_signals);
+    signal(SIGUSR1, handler_signals);
+    signal(SIGUSR2, handler_signals);
+
+	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
+    // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
+	for(; optind < argc; optind++){      
+        printf("extra arguments: %s\n", argv[optind]);  
+    } 
+
+    // Rimanere attivo per testare i segnali
+    int i = 0;
+    while (++i < 5) {
+        printf("MasterWorker in esecuzione...\n");
+        sleep(1);
+    }
+}
+
 // Funzione per la gestione dei segnali in MasterWorker
-void handle_signal(int sig_rec) {
+void handler_signals(int sig_rec) {
     switch(sig_rec) {
         case SIGHUP:
             write(1, "MasterWorker: ricevuto SIGHUP\n", 31);
@@ -30,27 +60,43 @@ void handle_signal(int sig_rec) {
     }
 }
 
-void MasterWorker(char * argv[], int argc, int optind) {
-    printf("Sono MasterWorker (PID: %d)\n", getpid());
+// Funzione che esplora la directory, saltando file ., .. e nascosti
+void naviga_dir(const char *dname) {
+    struct dirent *entry;
+    struct stat file_stat;
 
-    // Gestore segnali per il MasterWorker
-    signal(SIGHUP, handle_signal);
-    signal(SIGINT, handle_signal);
-    signal(SIGQUIT, handle_signal);
-    signal(SIGTERM, handle_signal);
-    signal(SIGUSR1, handle_signal);
-    signal(SIGUSR2, handle_signal);
-
-	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
-    // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
-	for(; optind < argc; optind++){      
-        printf("extra arguments: %s\n", argv[optind]);  
-    } 
-
-    // Rimanere attivo per testare i segnali
-    int i = 0;
-    while (++i < 5) {
-        printf("MasterWorker in esecuzione...\n");
-        sleep(1);
+    DIR *dir = opendir(dname);
+    if (!dir) {
+        perror("Errore nell'aprire la directory dei file di input");
+        return;
     }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char full_path[1024];
+
+        // Salta "." e ".." e i file nascosti
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+
+        // Crea il path completo
+        snprintf(full_path, sizeof(full_path), "%s/%s", dname, entry->d_name);
+
+        // Ottieni informazioni sul file
+        if (stat(full_path, &file_stat) == -1) {
+            perror("Errore nell'ottenere informazioni sul file");
+            continue;
+        }
+
+        if (S_ISDIR(file_stat.st_mode)) {
+            // Se è una directory la esplorala ricorsivamente
+            //--printf("Directory: %s\n", full_path);
+            naviga_dir(full_path);
+        } else if (S_ISREG(file_stat.st_mode)) {
+            // Se è un file regolare lo aggiungo alla coda concorrente
+            printf("File regolare: %s\n", full_path);
+        }
+    }
+
+    closedir(dir);
 }

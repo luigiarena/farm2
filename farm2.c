@@ -105,7 +105,7 @@ int main(int argc, char *argv[]){
 		Collector();
 	} else {
 		// padre: MasterWorker
-		MasterWorker(argv, argc, optind);
+		MasterWorker(argv, argc, optind, nthread, qlen, tdelay, dname);
 	}
 
 	return 0;
