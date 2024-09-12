@@ -10,7 +10,7 @@
 
 void Collector() {
 
-    int control = 1;
+    int control_collector = 1;
 
     char *buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
@@ -51,7 +51,7 @@ void Collector() {
 
     printf("Collector in ascolto...\n");
 
-    while (control) {
+    while (control_collector) {
         // Accetta connessioni dai worker
         if (client_socket < 0) {
             perror("Collector error -> accept connessione");
@@ -69,7 +69,7 @@ void Collector() {
             // Invio la risposta al client
             char ack[256] = "ack";
             write(client_socket, ack, strlen(ack));
-            control = 0;
+            control_collector = 0;
         }
 
         buffer[msg_read] = '\0';  // Assicura la terminazione della stringa
@@ -80,7 +80,7 @@ void Collector() {
         // Chiude la connessione con il client
         close(client_socket);
     }
-    
+
     // Chiusura del socket server
     close(server_socket);
     unlink(SOCKET_PATH);

@@ -8,8 +8,15 @@
 
 #include "masterworker.h"
 
+pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
+
 void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int tdelay, char *dname) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
+
+    int control_master = 1;
+    int server_socket;
+    struct sockaddr_un sa;
 
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
@@ -25,12 +32,34 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int
         printf("extra arguments: %s\n", argv[optind]);  
     } 
 
+    // Creazione socket
+    server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
+    if (server_socket < 0) {
+        perror("MasterWorker error -> creazione socket fallita\n");
+        exit(EXIT_FAILURE);
+    }
+
+        // Configurazione socket
+        server_addr.sun_family = AF_UNIX;
+        strcpy(server_addr.sun_path, SOCKET_PATH);
+
+        // Connessione al Collector
+        if (connect(server_socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+            perror("MasterWorker error -> connessione fallita");
+            close(server_socket);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Connessione con Collector stabilita...\n");
+
     // Rimanere attivo per testare i segnali
+    /*
     int i = 0;
     while (++i < 5) {
         printf("MasterWorker in esecuzione...\n");
         sleep(1);
     }
+    */
 }
 
 // Funzione per la gestione dei segnali in MasterWorker
