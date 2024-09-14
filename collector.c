@@ -3,6 +3,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include "collector.h"
 
 #define SOCKET_PATH			"./farm2.sck"
@@ -10,11 +16,10 @@
 
 void Collector() {
 
-    int control_collector = 1;
-
-    char *buffer[BUF_MAX_SIZE];
+    char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
     struct sockaddr_un sa;
+    int nread;
 
     printf("Sono Collector (PID: %d)\n", getpid());
 
@@ -26,46 +31,50 @@ void Collector() {
 
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
-    if (server_socket < 0) {
+    if (server_socket == -1) {
         perror("Collector error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
-    }
+    } else printf("Collector socket OK\n");
 
     // Configurazione socket
-    server_addr.sun_family = AF_UNIX;
-    strcpy(server_addr.sun_path, SOCKET_PATH);
+    sa.sun_family = AF_UNIX;
+    strcpy(sa.sun_path, SOCKET_PATH);
 
     // Binding
-    if (bind(server_socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+    if (bind(server_socket, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    }
+    } else printf("Collector bind OK\n");
 
     // Listen
-    if (listen(server_socket, 1) < 0) {
+    if (listen(server_socket, 1) == -1                          ) {
         perror("Collector error -> listen connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    }
+    } else printf("Collector listen OK\n");
 
     printf("Collector in ascolto...\n");
 
+    int control_collector = 1;
     while (control_collector) {
-        // Accetta connessioni dai worker
+        // Accetta connessioni
+        client_socket = accept(server_socket, NULL, NULL);
         if (client_socket < 0) {
             perror("Collector error -> accept connessione");
             close(server_socket);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
+
         // Ricezione del messaggio
         int msg_read = read(client_socket, buffer, sizeof(buffer) - 1);
         if (msg_read < 0) {
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
             close(client_socket);
             continue;
+            //break;
         }
-        if (strcmp(s_args.file_path, "STOP") == 0) {
+        if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client
             char ack[256] = "ack";
             write(client_socket, ack, strlen(ack));
@@ -75,10 +84,10 @@ void Collector() {
         buffer[msg_read] = '\0';  // Assicura la terminazione della stringa
 
         // Stampa il messaggio ricevuto
-        printf("Collector received: %s", buffer);
+        printf("Collector ha ricevuto: %s\n", buffer);
 
         // Chiude la connessione con il client
-        close(client_socket);
+        //close(client_socket);
     }
 
     // Chiusura del socket server

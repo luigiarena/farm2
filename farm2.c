@@ -105,7 +105,10 @@ int main(int argc, char *argv[]){
 		Collector();
 	} else {
 		// padre: MasterWorker
+		sleep(1);
 		MasterWorker(argv, argc, optind, nthread, qlen, tdelay, dname);
+		printf("Sono uscito da master!\n");
+		wait(NULL);
 	}
 
 	return 0;

@@ -1,12 +1,28 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <dirent.h>
 #include <string.h>
+
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/stat.h>
+//#include <sys/types.h>
+//#include <sys/wait.h>
 
 #include "masterworker.h"
+
+#define SOCKET_PATH			"./farm2.sck"
+#define BUF_MAX_SIZE                  255
+#define MAX_NCONN                      10
+
+int pool_work = 0;
+volatile sig_atomic_t stop_signal = 0;
+volatile sig_atomic_t usr1_signal = 0;
+volatile sig_atomic_t usr2_signal = 0;
 
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
@@ -17,49 +33,69 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int
     int control_master = 1;
     int server_socket;
     struct sockaddr_un sa;
+    char buffer[BUF_MAX_SIZE];
 
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
-    signal(SIGINT, handler_signals);
+    //signal(SIGINT, handler_signals);
     signal(SIGQUIT, handler_signals);
     signal(SIGTERM, handler_signals);
     signal(SIGUSR1, handler_signals);
     signal(SIGUSR2, handler_signals);
 
-	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
-    // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
-	for(; optind < argc; optind++){      
-        printf("extra arguments: %s\n", argv[optind]);  
-    } 
-
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
-    if (server_socket < 0) {
+    if (server_socket == -1) {
         perror("MasterWorker error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
     }
 
         // Configurazione socket
-        server_addr.sun_family = AF_UNIX;
-        strcpy(server_addr.sun_path, SOCKET_PATH);
-
+        sa.sun_family = AF_UNIX;
+        strcpy(sa.sun_path, SOCKET_PATH);
+/*
         // Connessione al Collector
         if (connect(server_socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
             perror("MasterWorker error -> connessione fallita");
             close(server_socket);
             exit(EXIT_FAILURE);
+        } else printf("Tutto OK!\n");
+*/
+        int tentativi=0;
+        printf("MasterWorker -> tento la connessione\n");
+        // Connessione al server (collector)
+        while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&sa, sizeof(sa)) == -1)) {
+            perror("MasterWorker error -> connessione fallita");
+            close(server_socket);
+            exit(EXIT_FAILURE);
+            tentativi++;
+            sleep(1);
         }
 
         printf("Connessione con Collector stabilita...\n");
 
-    // Rimanere attivo per testare i segnali
-    /*
-    int i = 0;
-    while (++i < 5) {
-        printf("MasterWorker in esecuzione...\n");
-        sleep(1);
-    }
-    */
+        // Attesa messaggio di conferma dal collector
+        //read(server_socket, buffer, BUF_MAX_SIZE);
+        //printf("Master ha ricevuto: %s\n", buffer);
+
+        // FACCIO COSE
+        
+        // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
+        // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
+        for(; optind < argc; optind++){      
+            printf("extra arguments: %s\n", argv[optind]);  
+        } 
+
+        // Invio messaggio "STOP"
+        send(server_socket, "STOP", strlen("STOP"), 0);
+        memset(buffer, 0, BUF_MAX_SIZE);
+        read(server_socket, buffer, BUF_MAX_SIZE);
+        printf("Master ha ricevuto: %s\n", buffer);
+
+        // Chiusura connessione
+        close(server_socket);
+
+    return;
 }
 
 // Funzione per la gestione dei segnali in MasterWorker
