@@ -102,13 +102,13 @@ int main(int argc, char *argv[]){
 
 	if(pid == 0) {
 		// figlio: Collector
-		Collector();
+		Collector(tdelay);
 	} else {
 		// padre: MasterWorker
-		sleep(1);
-		MasterWorker(argv, argc, optind, nthread, qlen, tdelay, dname);
-		printf("Sono uscito da master!\n");
-		wait(NULL);
+		sleep(1); // Attendo che collector abbia avviato la connessione
+		MasterWorker(argv, argc, optind, nthread, qlen, dname);
+
+		wait(NULL); // Attendo la chiusura di Collector
 	}
 
 	return 0;

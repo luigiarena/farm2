@@ -2,4 +2,4 @@
 
 void mask_signals();
 void cleanup();
-void Collector();
+void Collector(int tdelay);

@@ -14,7 +14,7 @@
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
 
-void Collector() {
+void Collector(int tdelay) {
 
     char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;

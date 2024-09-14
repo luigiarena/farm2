@@ -14,12 +14,13 @@
 //#include <sys/wait.h>
 
 #include "masterworker.h"
+#include "worker_thread.h"
+#include "pool_list.h"
 
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
 #define MAX_NCONN                      10
 
-int pool_work = 0;
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
@@ -27,13 +28,17 @@ volatile sig_atomic_t usr2_signal = 0;
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
-void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int tdelay, char *dname) {
+void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, char *dname) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
 
     int control_master = 1;
     int server_socket;
+    //int n_workers = nthread;
+
     struct sockaddr_un sa;
     char buffer[BUF_MAX_SIZE];
+
+    pthread_t worker_pool[nthread];
 
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
@@ -72,13 +77,32 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, int
             sleep(1);
         }
 
-        printf("Connessione con Collector stabilita...\n");
+        printf("MasterWorker -> connessione con Collector stabilita!\n");
 
         // Attesa messaggio di conferma dal collector
         //read(server_socket, buffer, BUF_MAX_SIZE);
         //printf("Master ha ricevuto: %s\n", buffer);
 
+        // Creo la coda concorrente
+        Coda coda_concorrente = crea_coda();
+
+        // Creo i worker thread
+        for (int i = 0; i < nthread; i++) {
+            if (pthread_create(&worker_pool[i], NULL, worker_thread, &coda_concorrente)) {
+                fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
+                exit(EXIT_FAILURE);
+            }
+        }
+
         // FACCIO COSE
+
+        // Attendo la terminazione dei worker
+        for (int i = 0; i < nthread; i++) {
+            if (pthread_join(worker_pool[i], NULL)) {
+                fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", i);
+                exit(EXIT_FAILURE);
+            }
+        }
         
         // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
         // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
