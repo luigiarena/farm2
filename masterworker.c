@@ -42,7 +42,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
 
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
-    //signal(SIGINT, handler_signals);
+    signal(SIGINT, handler_signals);
     signal(SIGQUIT, handler_signals);
     signal(SIGTERM, handler_signals);
     signal(SIGUSR1, handler_signals);
@@ -95,6 +95,10 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         }
 
         // FACCIO COSE
+        while(!stop_signal)
+        {
+            sleep(1);
+        }
 
         // Attendo la terminazione dei worker
         for (int i = 0; i < nthread; i++) {
@@ -127,25 +131,30 @@ void handler_signals(int sig_rec) {
     switch(sig_rec) {
         case SIGHUP:
             write(1, "MasterWorker: ricevuto SIGHUP\n", 31);
+            stop_signal = 1;
             break;
         case SIGINT:
             write(1, "MasterWorker: ricevuto SIGINT\n", 31);
+            stop_signal = 1;
             break;
         case SIGQUIT:
             write(1, "MasterWorker: ricevuto SIGQUIT\n", 32);
+            stop_signal = 1;
             break;
         case SIGTERM:
             write(1, "MasterWorker: ricevuto SIGTERM\n", 32);
+            stop_signal = 1;
             break;
         case SIGUSR1:
             write(1, "MasterWorker: ricevuto SIGUSR1\n", 32);
+            usr1_signal = 1;
             break;
         case SIGUSR2:
             write(1, "MasterWorker: ricevuto SIGUSR2\n", 32);
+            usr2_signal = 1;
             break;
         default:
             break;
-
     }
 }
 
@@ -189,3 +198,4 @@ void naviga_dir(const char *dname) {
 
     closedir(dir);
 }
+
