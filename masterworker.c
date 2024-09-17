@@ -25,6 +25,9 @@ volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
 
+Worker_list *lista_w;
+Coda coda_concorrente;
+
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
@@ -38,7 +41,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
     struct sockaddr_un sa;
     char buffer[BUF_MAX_SIZE];
 
-    pthread_t worker_pool[nthread];
+    //pthread_t worker_pool[nthread];
 
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
@@ -84,35 +87,51 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         //printf("Master ha ricevuto: %s\n", buffer);
 
         // Creo la coda concorrente
-        Coda coda_concorrente = crea_coda();
+        coda_concorrente = crea_coda();
+
+        lista_w = malloc(sizeof(Worker_list));
+        lista_w->count_w = 0;
+        lista_w->head = NULL;
 
         // Creo i worker thread
+        /*
         for (int i = 0; i < nthread; i++) {
             if (pthread_create(&worker_pool[i], NULL, worker_thread, &coda_concorrente)) {
                 fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
                 exit(EXIT_FAILURE);
             }
         }
+        */
+        for (int i = 0; i < nthread; i++) {
+            add_worker();
+        }
 
         // FACCIO COSE
         while(!stop_signal)
         {
+            printf("MasterWorker -> cicl\n");
             sleep(1);
         }
 
+        // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
+        // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
+        for (; optind < argc; optind++) {      
+            printf("extra arguments: %s\n", argv[optind]);  
+        } 
+
+        printf("MasterWorker -> prima join\n");
+
         // Attendo la terminazione dei worker
         for (int i = 0; i < nthread; i++) {
+            /*
             if (pthread_join(worker_pool[i], NULL)) {
                 fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", i);
                 exit(EXIT_FAILURE);
             }
+            */
         }
-        
-        // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
-        // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
-        for(; optind < argc; optind++){      
-            printf("extra arguments: %s\n", argv[optind]);  
-        } 
+
+        printf("MasterWorker -> dopo join\n");
 
         // Invio messaggio "STOP"
         send(server_socket, "STOP", strlen("STOP"), 0);
@@ -199,3 +218,30 @@ void naviga_dir(const char *dname) {
     closedir(dir);
 }
 
+void add_worker() {
+    Worker_node *w;
+    Worker_node *temp;
+    int i = lista_w->count_w + 1;
+
+    if ( (w = malloc(sizeof(Worker_node))) == NULL ) {
+        fprintf(stderr, "MasterWorker error -> errore allocazione worker %d\n", i);
+        exit(EXIT_FAILURE);
+    } else {
+        w->next = NULL;
+        temp = lista_w->head;
+        if (temp == NULL) {
+            temp = w;
+        } else {
+            while (temp->next != NULL) temp = temp->next;
+            temp->next = w;
+        }
+    }
+    lista_w->count_w = i;
+
+    // Creo il nuovo worker thread
+    if (pthread_create(&w->tid, NULL, worker_thread, &coda_concorrente)) {
+        fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
+        exit(EXIT_FAILURE);
+    }
+
+}
