@@ -109,6 +109,14 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         // FACCIO COSE
         while(!stop_signal)
         {
+            if (usr1_signal != 0) {
+                add_worker();
+                usr1_signal = 0;
+            }
+            if (usr2_signal != 0) {
+
+                usr2_signal = 0;
+            }
             printf("MasterWorker -> cicl\n");
             sleep(1);
         }
@@ -121,15 +129,20 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
 
         printf("MasterWorker -> prima join\n");
 
+
+
+        Worker_node *iterator = NULL;
         // Attendo la terminazione dei worker
-        for (int i = 0; i < nthread; i++) {
-            /*
-            if (pthread_join(worker_pool[i], NULL)) {
+        iterator = lista_w->head;
+        for (int i = 0; (i < lista_w->count_w) && (iterator!=NULL); i++) {
+            if (pthread_join(iterator->tid, NULL)) {
+                printf("Workerd %ld chiuso\n", (lista_w->head+i)->tid);
                 fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", i);
                 exit(EXIT_FAILURE);
             }
-            */
+            iterator = iterator->next;
         }
+        free(iterator);
 
         printf("MasterWorker -> dopo join\n");
 
@@ -141,6 +154,10 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
 
         // Chiusura connessione
         close(server_socket);
+
+        print_nworkers();
+        free_lista();
+        printf("Chiusura di Masterworker\n");
 
     return;
 }
@@ -158,7 +175,7 @@ void handler_signals(int sig_rec) {
             break;
         case SIGQUIT:
             write(1, "MasterWorker: ricevuto SIGQUIT\n", 32);
-            stop_signal = 1;
+            usr1_signal = 1;
             break;
         case SIGTERM:
             write(1, "MasterWorker: ricevuto SIGTERM\n", 32);
@@ -245,3 +262,43 @@ void add_worker() {
     }
 
 }
+
+void print_nworkers() {
+    printf("Numero di Thread Worker alla chiusura: %d\n", lista_w->count_w);
+    return;
+}
+
+void free_lista() {
+    
+    if (lista_w == NULL) return;
+    else {
+        free_nodo(lista_w->head);
+        free(lista_w);
+        return;
+    }
+}
+
+void free_nodo(Worker_node *w) {
+    if (w == NULL) return;
+    else {
+        free_nodo(w->next);
+        free(w);
+        return;
+    }
+
+}
+/*
+void free_lista() {
+    Worker_node *w = lista_w->head;
+    Worker_node *temp = lista_w->head;
+    //int n = lista_w->count_w;
+
+    while (w != NULL) {
+        temp = w;
+        w = w->next;
+        free(&temp);
+    }
+    free(lista_w);
+    return;
+}
+*/

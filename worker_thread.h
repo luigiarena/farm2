@@ -15,3 +15,8 @@ void* worker_thread(void* arg);
 
 void add_worker();
 
+void print_nworkers();
+
+void free_lista();
+
+void free_nodo(Worker_node *w);
