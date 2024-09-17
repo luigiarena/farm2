@@ -27,6 +27,7 @@ volatile sig_atomic_t usr2_signal = 0;
 
 Worker_list *lista_w;
 Coda coda_concorrente;
+int coda_piena = 0;
 
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
@@ -107,6 +108,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         }
 
         // FACCIO COSE
+
         while(!stop_signal)
         {
             if (usr1_signal != 0) {
@@ -115,8 +117,22 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
             }
             if (usr2_signal != 0) {
                 // DA FINIRE
+                //del_worker();
                 usr2_signal = 0;
             }
+
+/*
+            if (coda_concorrente.size < qlen) {
+                // Aggiungo prima i file inseriti come argomenti e
+                // poi quelli contenuti nella directory indicata
+                if (optind < argc) {
+                    push_file(&coda_concorrente, argv[optind]);
+                    optind++;
+                } else {
+
+                }                
+            }
+*/
             printf("MasterWorker -> ciclo\n");
             sleep(1);
         }
@@ -124,8 +140,17 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
         // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
         for (; optind < argc; optind++) {      
-            printf("extra arguments: %s\n", argv[optind]);  
-        } 
+            printf("extra arguments: %s\n", argv[optind]);
+            push_file(&coda_concorrente, argv[optind]);  
+        }
+        
+
+        /*
+        int len = coda_concorrente.size;
+        for (int i=0; i<len; i++) {
+            printf("Verifica file: %s\n", pop_file(&coda_concorrente));
+        }
+        */
 
         printf("MasterWorker -> prima join\n");
 
@@ -223,7 +248,7 @@ void naviga_dir(const char *dname) {
         }
 
         if (S_ISDIR(file_stat.st_mode)) {
-            // Se è una directory la esplorala ricorsivamente
+            // Se è una directory la esplora ricorsivamente
             //--printf("Directory: %s\n", full_path);
             naviga_dir(full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
@@ -233,6 +258,44 @@ void naviga_dir(const char *dname) {
     }
 
     closedir(dir);
+}
+
+int push_file(Coda *c, char *path) {
+    printf("tentativo\n");
+    Nodo *n = malloc(sizeof(Nodo));
+printf("passo 1\n");
+    n->file_path = malloc(BUF_MAX_SIZE);
+    strncpy(n->file_path, path, strlen(path));
+    //n->file_path[strlen(path)+1] = '\0';
+    n->next = NULL;
+printf("passo 2\n");
+    if (c->head == NULL) c->head = n;
+printf("passo 3\n");
+    if (c->tail == NULL) c->tail = n;
+    else c->tail->next = n;
+printf("passo 4\n");
+    return c->size++;
+}
+
+char* pop_file(Coda *c) {
+    Nodo *n = malloc(sizeof(Nodo));
+    char* path = malloc(BUF_MAX_SIZE);
+
+    if (c->head == NULL) return NULL;
+    else {
+        n->file_path = malloc(BUF_MAX_SIZE);
+        strncpy(path, c->head->file_path, strlen(path));
+        path[strlen(path)+1] = '\0';
+        
+        if (c->head->next != NULL) c->head->next = c->head->next->next;
+        else {
+            c->head = NULL;
+            c->tail = NULL;
+        }
+
+        c->size--;
+    }
+    return path;
 }
 
 void add_worker() {
