@@ -114,10 +114,10 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
                 usr1_signal = 0;
             }
             if (usr2_signal != 0) {
-
+                // DA FINIRE
                 usr2_signal = 0;
             }
-            printf("MasterWorker -> cicl\n");
+            printf("MasterWorker -> ciclo\n");
             sleep(1);
         }
 
@@ -129,7 +129,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
 
         printf("MasterWorker -> prima join\n");
 
-
+        // Aspetto la fine della coda concorrente
 
         Worker_node *iterator = NULL;
         // Attendo la terminazione dei worker
@@ -175,7 +175,7 @@ void handler_signals(int sig_rec) {
             break;
         case SIGQUIT:
             write(1, "MasterWorker: ricevuto SIGQUIT\n", 32);
-            usr1_signal = 1;
+            stop_signal = 1;
             break;
         case SIGTERM:
             write(1, "MasterWorker: ricevuto SIGTERM\n", 32);
@@ -287,18 +287,3 @@ void free_nodo(Worker_node *w) {
     }
 
 }
-/*
-void free_lista() {
-    Worker_node *w = lista_w->head;
-    Worker_node *temp = lista_w->head;
-    //int n = lista_w->count_w;
-
-    while (w != NULL) {
-        temp = w;
-        w = w->next;
-        free(&temp);
-    }
-    free(lista_w);
-    return;
-}
-*/
