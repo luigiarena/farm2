@@ -62,14 +62,7 @@ void MasterWorker(char *file_list[], int list_index, int nthread, int qlen, char
         // Configurazione socket
         sa.sun_family = AF_UNIX;
         strcpy(sa.sun_path, SOCKET_PATH);
-/*
-        // Connessione al Collector
-        if (connect(server_socket, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
-            perror("MasterWorker error -> connessione fallita");
-            close(server_socket);
-            exit(EXIT_FAILURE);
-        } else printf("Tutto OK!\n");
-*/
+
         int tentativi=0;
         printf("MasterWorker -> tento la connessione\n");
         // Connessione al server (collector)
@@ -95,14 +88,6 @@ void MasterWorker(char *file_list[], int list_index, int nthread, int qlen, char
         lista_w->head = NULL;
 
         // Creo i worker thread
-        /*
-        for (int i = 0; i < nthread; i++) {
-            if (pthread_create(&worker_pool[i], NULL, worker_thread, &coda_concorrente)) {
-                fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
-                exit(EXIT_FAILURE);
-            }
-        }
-        */
         for (int i = 0; i < nthread; i++) {
             add_worker(lista_w);
         }
@@ -263,39 +248,7 @@ void naviga_dir(const char *dname) {
 
     closedir(dir);
 }
-/*
-void push_dir(const char *dname, DIR *dir, struct dirent *entry) {
 
-    while ((entry = readdir(dir)) != NULL) {
-        char full_path[1024];
-
-        // Salta "." e ".." e i file nascosti
-        if (entry->d_name[0] == '.') {
-            continue;
-        }
-
-        // Crea il path completo
-        snprintf(full_path, sizeof(full_path), "%s/%s", dname, entry->d_name);
-
-        // Ottieni informazioni sul file
-        if (stat(full_path, &file_stat) == -1) {
-            perror("Errore nell'ottenere informazioni sul file");
-            continue;
-        }
-
-        if (S_ISDIR(file_stat.st_mode)) {
-            // Se è una directory la esplora ricorsivamente
-            //--printf("Directory: %s\n", full_path);
-            push_dir(full_path);
-        } else if (S_ISREG(file_stat.st_mode)) {
-            // Se è un file regolare lo aggiungo alla coda concorrente
-            printf("File regolare: %s\n", full_path);
-        }
-    }
-
-    closedir(dir);
-}
-*/
 int push_file(Coda *c, char *path) {
     Nodo *n = malloc(sizeof(Nodo));
 
