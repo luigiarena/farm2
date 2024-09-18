@@ -67,27 +67,29 @@ void Collector(int tdelay) {
         }
 
         // Ricezione del messaggio
-        int msg_read = read(client_socket, buffer, sizeof(buffer) - 1);
-        if (msg_read < 0) {
+        int nread = read(client_socket, buffer, sizeof(buffer) - 1);
+        if (nread < 0) {
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
             close(client_socket);
             continue;
             //break;
         }
+
+        buffer[nread] = '\0';  // Assicura la terminazione della stringa
+
         if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client
+            printf("Collector: sto per  inviare ack\n");
             char ack[256] = "ack";
             write(client_socket, ack, strlen(ack));
             control_collector = 0;
         }
 
-        buffer[msg_read] = '\0';  // Assicura la terminazione della stringa
-
         // Stampa il messaggio ricevuto
         printf("Collector ha ricevuto: %s\n", buffer);
 
         // Chiude la connessione con il client
-        //close(client_socket);
+        close(client_socket);
     }
 
     // Chiusura del socket server
@@ -106,7 +108,6 @@ void Collector(int tdelay) {
 }
 
 void mask_signals() {
-
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGHUP);

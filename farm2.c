@@ -4,10 +4,13 @@
 #include <string.h>
 #include <signal.h>
 #include <getopt.h>
+#include <dirent.h>
+
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #include "masterworker.h"
 #include "collector.h"
@@ -19,6 +22,10 @@
 #define DNAME_PATHLEN				  255
 #define SOCKET_PATH			"./farm2.sck"
 #define SOCKET_PATH_LEN				   11
+#define BUF_MAX_SIZE                  255
+#define FILE_LIST_SIZE				 1024
+
+int add_dir(const char *dname, char *ar[], int index);
 
 struct sockaddr_un sa;
 
@@ -74,17 +81,30 @@ int main(int argc, char *argv[]){
         }
     }
 
-	// Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
-	/*
-	for(; optind < argc; optind++){      
-        printf("extra arguments: %s\n", argv[optind]);  
-    } 
-	*/
     // Se non esistono argomenti e -d non è settato chiudo
 	if (optind >= argc && dname == NULL) {
 		fprintf(stderr, "Nessun argomento fornito al programma.\nChiusura di farm2.\n");
 		exit(EXIT_FAILURE);
 	}
+
+	// Creo un array di tutti i file da passare a masterworker
+	char *file_list[FILE_LIST_SIZE];
+	for (int i=0; i<FILE_LIST_SIZE; i++) file_list[i] = malloc(BUF_MAX_SIZE);
+
+	int list_index = 0;
+	while (optind < argc) {
+		strncpy(file_list[list_index], argv[optind], BUF_MAX_SIZE);
+        optind++;
+		list_index++;
+    }
+
+	if (dname != NULL) list_index = add_dir(dname, file_list, list_index);
+
+	if (list_index == -1) {
+		perror("Errore nella lettura della directory\n");
+		exit(EXIT_FAILURE);
+	}
+
 
 	// Creo il file socket
     sa.sun_family = AF_UNIX;
@@ -106,10 +126,54 @@ int main(int argc, char *argv[]){
 	} else {
 		// padre: MasterWorker
 		sleep(1); // Attendo che collector abbia avviato la connessione
-		MasterWorker(argv, argc, optind, nthread, qlen, dname);
+		MasterWorker(file_list, list_index, nthread, qlen, dname);
 
 		wait(NULL); // Attendo la chiusura di Collector
 	}
 
 	return 0;
+}
+
+// Funzione che esplora la directory, saltando file ., .. e nascosti
+int add_dir(const char *dname, char *ar[], int index) {
+    struct dirent *entry;
+    struct stat file_stat;
+
+    DIR *dir = opendir(dname);
+    if (!dir) {
+        perror("Errore nell'aprire la directory dei file di input");
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        char full_path[1024];
+
+        // Salta "." e ".." e i file nascosti
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+
+        // Crea il path completo
+        snprintf(full_path, sizeof(full_path), "%s/%s", dname, entry->d_name);
+
+        // Ottieni informazioni sul file
+        if (stat(full_path, &file_stat) == -1) {
+            perror("Errore nell'ottenere informazioni sul file");
+            continue;
+        }
+
+        if (S_ISDIR(file_stat.st_mode)) {
+            // Se è una directory la esplora ricorsivamente
+            //--printf("Directory: %s\n", full_path);
+            add_dir(full_path, ar, index);
+        } else if (S_ISREG(file_stat.st_mode)) {
+            // Se è un file regolare lo aggiungo alla coda concorrente
+            // printf("File regolare: %s\n", full_path);
+			strncpy(ar[index], full_path, BUF_MAX_SIZE);
+			index++;
+        }
+    }
+
+    closedir(dir);
+	return index;
 }
