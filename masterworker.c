@@ -35,7 +35,7 @@ pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, char *dname) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
 
-    int control_master = 1;
+    int no_more_files = 0;
     int server_socket;
     //int n_workers = nthread;
 
@@ -104,7 +104,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         }
         */
         for (int i = 0; i < nthread; i++) {
-            add_worker();
+            add_worker(lista_w);
         }
 
         // FACCIO COSE
@@ -112,7 +112,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         while(!stop_signal)
         {
             if (usr1_signal != 0) {
-                add_worker();
+                add_worker(lista_w);
                 usr1_signal = 0;
             }
             if (usr2_signal != 0) {
@@ -121,8 +121,7 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
                 usr2_signal = 0;
             }
 
-/*
-            if (coda_concorrente.size < qlen) {
+            if (!no_more_files && coda_concorrente.size < qlen) {
                 // Aggiungo prima i file inseriti come argomenti e
                 // poi quelli contenuti nella directory indicata
                 if (optind < argc) {
@@ -132,25 +131,30 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
 
                 }                
             }
-*/
-            printf("MasterWorker -> ciclo\n");
-            sleep(1);
+
+            //printf("MasterWorker -> ciclo\n");
+            //csleep(1);
         }
 
         // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
         // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
+        /*
         for (; optind < argc; optind++) {      
             printf("extra arguments: %s\n", argv[optind]);
             push_file(&coda_concorrente, argv[optind]);  
         }
-        
+        */
 
-        /*
         int len = coda_concorrente.size;
+        printf("Coda size: %d\n", coda_concorrente.size);
+        Nodo *test = coda_concorrente.head;
+        while (test != NULL) {
+            printf("Iter file: %s\n", test->file_path);
+            test = test->next;
+        }
         for (int i=0; i<len; i++) {
             printf("Verifica file: %s\n", pop_file(&coda_concorrente));
         }
-        */
 
         printf("MasterWorker -> prima join\n");
 
@@ -180,8 +184,8 @@ void MasterWorker(char *argv[], int argc, int optind, int nthread, int qlen, cha
         // Chiusura connessione
         close(server_socket);
 
-        print_nworkers();
-        free_lista();
+        print_nworkers(lista_w);
+        free_lista(lista_w);
         printf("Chiusura di Masterworker\n");
 
     return;
@@ -261,54 +265,63 @@ void naviga_dir(const char *dname) {
 }
 
 int push_file(Coda *c, char *path) {
-    printf("tentativo\n");
     Nodo *n = malloc(sizeof(Nodo));
-printf("passo 1\n");
+
     n->file_path = malloc(BUF_MAX_SIZE);
     strncpy(n->file_path, path, strlen(path));
-    //n->file_path[strlen(path)+1] = '\0';
+    n->file_path[strlen(path)+1] = '\0';
     n->next = NULL;
-printf("passo 2\n");
-    if (c->head == NULL) c->head = n;
-printf("passo 3\n");
-    if (c->tail == NULL) c->tail = n;
-    else c->tail->next = n;
-printf("passo 4\n");
+/*
+    if (c->head == NULL) { 
+        c->head = n; 
+        c->tail = n; 
+    } else {
+        c->tail->next = n;
+    }
+*/
+    if (c->head == NULL) 
+        c->head = n;
+    else if (c->tail == NULL) 
+        c->head->next = c->tail = n;
+    else { 
+        c->tail->next = n;
+        c->tail = c->tail->next;
+    }
+
+    //if (c->tail == NULL) c->tail = n;
+    //else c->tail->next = n;
+
     return c->size++;
 }
 
 char* pop_file(Coda *c) {
-    Nodo *n = malloc(sizeof(Nodo));
     char* path = malloc(BUF_MAX_SIZE);
 
     if (c->head == NULL) return NULL;
     else {
-        n->file_path = malloc(BUF_MAX_SIZE);
-        strncpy(path, c->head->file_path, strlen(path));
-        path[strlen(path)+1] = '\0';
-        
-        if (c->head->next != NULL) c->head->next = c->head->next->next;
-        else {
-            c->head = NULL;
-            c->tail = NULL;
-        }
+        strncpy(path, c->head->file_path, strlen(c->head->file_path));
+        path[strlen(c->head->file_path)+1] = '\0';
+
+        c->head = c->head->next;
+        if (c->head == NULL) c->tail = NULL;     
 
         c->size--;
     }
+
     return path;
 }
 
-void add_worker() {
+void add_worker(Worker_list *l) {
     Worker_node *w;
     Worker_node *temp;
-    int i = lista_w->count_w + 1;
+    int i = l->count_w + 1;
 
     if ( (w = malloc(sizeof(Worker_node))) == NULL ) {
         fprintf(stderr, "MasterWorker error -> errore allocazione worker %d\n", i);
         exit(EXIT_FAILURE);
     } else {
         w->next = NULL;
-        temp = lista_w->head;
+        temp = l->head;
         if (temp == NULL) {
             temp = w;
         } else {
@@ -316,7 +329,7 @@ void add_worker() {
             temp->next = w;
         }
     }
-    lista_w->count_w = i;
+    l->count_w = i;
 
     // Creo il nuovo worker thread
     if (pthread_create(&w->tid, NULL, worker_thread, &coda_concorrente)) {
@@ -326,17 +339,21 @@ void add_worker() {
 
 }
 
-void print_nworkers() {
-    printf("Numero di Thread Worker alla chiusura: %d\n", lista_w->count_w);
+void rem_worker(Worker_list *l) {
+
+}
+
+void print_nworkers(Worker_list *l) {
+    printf("Numero di Thread Worker alla chiusura: %d\n", l->count_w);
     return;
 }
 
-void free_lista() {
+void free_lista(Worker_list *l) {
     
-    if (lista_w == NULL) return;
+    if (l == NULL) return;
     else {
-        free_nodo(lista_w->head);
-        free(lista_w);
+        free_nodo(l->head);
+        free(l);
         return;
     }
 }

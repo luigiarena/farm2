@@ -13,10 +13,12 @@ typedef struct worker_list {
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg);
 
-void add_worker();
+void add_worker(Worker_list *l);
 
-void print_nworkers();
+void rem_worker(Worker_list *l);
 
-void free_lista();
+void print_nworkers(Worker_list *l);
+
+void free_lista(Worker_list *l);
 
 void free_nodo(Worker_node *w);
