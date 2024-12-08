@@ -1,28 +1,34 @@
 CC = gcc
 CFLAGS += -std=c99 -Wall -pedantic -g -pthread -Iheader
 
-TARGETS = generafile farm
-
-SOURCES = $./src
-HEADERS = $./headers
-TEST = $./test
+SOURCES = ./src
+HEADERS = ./headers
+TESTDIR = ./testdir
+SPAZIO = @echo "  "
 
 .PHONY = all test cleanall cleantest
 
+all: cleanall farm test
+
+farm: $(SOURCES)/*.c
+	$(CC) $(CFLAGS) $^ -c $@
+
 generafile: generafile.c 
-		$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $^ -o $@
 
 test: generafile
-	  ./test.sh
+	./test.sh
 
 cleanall: cleantest
-	-rm farm2
-	-rm generafile
-	-rm $(SOURCES)/*.o
+	@echo "Rimozione di tutti i file di oggetto, eseguibili e socket"
+	$(SPAZIO) -rm -f farm
+	$(SPAZIO) -rm -f generafile
+	$(SPAZIO) -rm -f farm2.sck 
+	$(SPAZIO) -rm -f $(SOURCES)/*.o
 
-cleantest:
-	-rm farm2.sck
-	-rm -f *.dat
-	-rm -f *.txt
-	-rm -f -r test
+cleantest: 
+	@echo "Rimozione di tutti i file di test"
+	$(SPAZIO) -rm -f *.dat
+	$(SPAZIO) -rm -f *.txt
+	$(SPAZIO) -rm -f -r $(TESTDIR)
 	
