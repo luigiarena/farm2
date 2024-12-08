@@ -28,6 +28,8 @@ volatile sig_atomic_t usr2_signal = 0;
 Worker_list *lista_w;
 Coda coda_concorrente;
 int coda_piena = 0;
+int coda_vuota = 0;
+int no_more_files = 0;
 
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
@@ -35,7 +37,6 @@ pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 void MasterWorker(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
 
-    int no_more_files = 0;
     int server_socket;
     //int n_workers = nthread;
 
@@ -137,9 +138,11 @@ void MasterWorker(char *file_list[], int list_index, int nthread, int qlen, char
             printf("Iter file: %s\n", test->file_path);
             test = test->next;
         }
+        /*
         for (int i=0; i<len; i++) {
             printf("Verifica file: %s\n", pop_file(&coda_concorrente));
         }
+        */
 
         printf("MasterWorker -> prima join\n");
 
@@ -278,7 +281,10 @@ char* pop_file(Coda *c) {
         path[strlen(c->head->file_path)+1] = '\0';
 
         c->head = c->head->next;
-        if (c->head == NULL) c->tail = NULL;     
+        if (c->head == NULL) {
+            c->tail = NULL;
+            c->empty = 1;
+        }   
 
         c->size--;
     }

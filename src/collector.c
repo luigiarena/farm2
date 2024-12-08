@@ -24,7 +24,7 @@ void Collector(int tdelay) {
     printf("Sono Collector (PID: %d)\n", getpid());
 
     // Maschera i segnali per il processo Collector
-    mask_signals();
+    mask_signals_collector();
 
     // Rimuove il vecchio socket se esiste
     cleanup();
@@ -67,7 +67,7 @@ void Collector(int tdelay) {
         }
 
         // Ricezione del messaggio
-        int nread = read(client_socket, buffer, sizeof(buffer) - 1);
+        nread = read(client_socket, buffer, sizeof(buffer) - 1);
         if (nread < 0) {
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
             close(client_socket);
@@ -107,7 +107,7 @@ void Collector(int tdelay) {
     */
 }
 
-void mask_signals() {
+void mask_signals_collector() {
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGHUP);
@@ -116,11 +116,7 @@ void mask_signals() {
     sigaddset(&set, SIGTERM);
     sigaddset(&set, SIGUSR1);
     sigaddset(&set, SIGUSR2);
-    /*
-   if (sigprocmask(SIG_BLOCK, &set, NULL) == -1) {
-        perror("Errore nel mascherare i segnali nel Collector");
-        exit(EXIT_FAILURE);
-    } */
+    
     if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
         perror("Collector error -> maschera segnali");
         exit(EXIT_FAILURE);

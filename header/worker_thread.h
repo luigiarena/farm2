@@ -1,5 +1,11 @@
 #include <stdio.h>
 
+typedef struct nodo_proc {
+    char *file_path;
+    long result;
+    struct nodo *next;
+} Nodo_proc;
+
 typedef struct worker_node {
     pthread_t tid;
     struct worker_node *next;
@@ -12,6 +18,10 @@ typedef struct worker_list {
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg);
+
+void mask_signals_worker();
+
+long calcola_res (char *path_file);
 
 void add_worker(Worker_list *l);
 
