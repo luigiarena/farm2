@@ -34,7 +34,7 @@ void* worker_thread(void* arg) {
             break;
         }
         while (cc->size == 0) {
-            pthread_cond_wait();
+            //pthread_cond_wait();
         }
 
         char *path_file = pop_file(cc);

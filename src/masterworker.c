@@ -283,7 +283,7 @@ char* pop_file(Coda *c) {
         c->head = c->head->next;
         if (c->head == NULL) {
             c->tail = NULL;
-            c->empty = 1;
+            //c->not_empty = NULL; //test
         }   
 
         c->size--;
