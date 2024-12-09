@@ -25,6 +25,7 @@
 #define BUF_MAX_SIZE                  255
 #define FILE_LIST_SIZE				 1024
 
+void usage_help(char* pname);
 int add_dir(const char *dname, char *ar[], int index);
 
 struct sockaddr_un sa;
@@ -76,14 +77,15 @@ int main(int argc, char *argv[]){
                 dname = optarg;
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", argv[0]);
+            usage_help(argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
     // Se non esistono argomenti e -d non è settato chiudo
 	if (optind >= argc && dname == NULL) {
-		fprintf(stderr, "Nessun argomento fornito al programma.\nChiusura di farm2.\n");
+		fprintf(stderr, "Nessun argomento fornito al programma.\n");
+        usage_help(argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -132,6 +134,11 @@ int main(int argc, char *argv[]){
 	}
 
 	return 0;
+}
+
+// Stampa un messaggio di aiuto sull'uso del programma
+void usage_help(char* pname) {
+    fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", pname);
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
