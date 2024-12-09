@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -5,7 +7,7 @@
 #include <signal.h>
 
 #include "worker_thread.h"
-#include "pool_list.h"
+#include "pool_manager.h"
 
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t usr1_signal;
