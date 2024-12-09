@@ -17,7 +17,7 @@
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
 
-void Collector(int tdelay) {
+void collector_main(int tdelay) {
 
     char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
@@ -128,4 +128,14 @@ void mask_signals_collector() {
 
 void cleanup() {
     unlink(SOCKET_PATH);
+}
+
+// Stampa lista dei risultati
+void printlist(result_t *lista_res) {
+	result_t *iter = lista_res;
+	while(iter != NULL) {
+		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
+		iter=iter->next;
+	}
+	fflush(stdout);
 }
