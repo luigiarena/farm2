@@ -15,7 +15,7 @@
 
 #include "masterworker.h"
 #include "worker_thread.h"
-#include "pool_list.h"
+#include "pool_manager.h"
 
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
