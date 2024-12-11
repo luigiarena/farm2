@@ -34,7 +34,7 @@ int no_more_files = 0;
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
-void MasterWorker(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
+void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
     printf("Sono MasterWorker (PID: %d)\n", getpid());
 
     int server_socket;

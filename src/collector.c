@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 1
+//#define _POSIX_C_SOURCE 1
 
 #include <stdio.h>
 #include <signal.h>
