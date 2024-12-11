@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 
+#include "utility.h"
 #include "masterworker.h"
 #include "collector.h"
 
@@ -38,11 +39,16 @@ int main(int argc, char *argv[]){
 	int nthread = NTHREAD_DEFAULT;		// numero di threads
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
 	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
-	char *dname = NULL;		// path della directory da visitare
+	char *dname = NULL;		            // path della directory da visitare
+    int verbose = 0;
+
+    verbose = 1;
+    VERBOSE_PRINT("FARM APERTA %s\n", "")
 
     // Analizza i parametri dati in input -n
+    verbose = 0;
 	int opt;
-    while ((opt = getopt(argc, argv, "hn:q:d:t:")) != -1) {
+    while ((opt = getopt(argc, argv, "hvn:q:d:t:")) != -1) {
         switch (opt) {
 			case 'h':
     			printf("Opzioni:\n"
@@ -52,6 +58,9 @@ int main(int argc, char *argv[]){
     				"\t-d dname\tnaviga nella directory per cercare\n"
 						"\t\t\tfile da leggere in input\t\t(default .)\n");
     			exit(EXIT_SUCCESS);
+            case 'v':
+                verbose = 1;
+                break;
             case 'n':
                 nthread = atoi(optarg);
                 if (nthread < NTHREAD_MIN) {
@@ -124,11 +133,11 @@ int main(int argc, char *argv[]){
 
 	if(pid == 0) {
 		// figlio: Collector
-		Collector(tdelay);
+		collector_main(tdelay);
 	} else {
 		// padre: MasterWorker
 		sleep(1); // Attendo che collector abbia avviato la connessione
-		MasterWorker(file_list, list_index, nthread, qlen, dname);
+		masterWorker_main(file_list, list_index, nthread, qlen, dname);
 
 		wait(NULL); // Attendo la chiusura di Collector
 	}
