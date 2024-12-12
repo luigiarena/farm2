@@ -8,10 +8,13 @@
 
 #include "worker_thread.h"
 #include "pool_manager.h"
+#include "utility.h"
 
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t usr1_signal;
 extern volatile sig_atomic_t usr2_signal;
+
+extern int verbose;
 
 extern int coda_vuota;
 extern int no_more_files;
@@ -28,7 +31,7 @@ void* worker_thread(void* arg) {
     int id = pthread_self();
 
     while (!stop_signal && !no_more_files) {
-        printf("Worker %d: Eseguendo...\n", id);
+        V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
 
         pthread_mutex_lock(&cc->lock);
         if (&cc->not_empty && no_more_files) {

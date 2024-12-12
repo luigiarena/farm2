@@ -16,6 +16,7 @@
 #include "masterworker.h"
 #include "worker_thread.h"
 #include "pool_manager.h"
+#include "utility.h"
 
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
@@ -24,6 +25,8 @@
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
+
+extern int verbose;
 
 Worker_list *lista_w;
 Coda coda_concorrente;
@@ -35,7 +38,7 @@ pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
 void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
-    printf("Sono MasterWorker (PID: %d)\n", getpid());
+    V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
     int server_socket;
     //int n_workers = nthread;
@@ -65,7 +68,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         strcpy(sa.sun_path, SOCKET_PATH);
 
         int tentativi=0;
-        printf("MasterWorker -> tento la connessione\n");
+        V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
         // Connessione al server (collector)
         while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&sa, sizeof(sa)) == -1)) {
             perror("MasterWorker error -> connessione fallita");
@@ -75,7 +78,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
             sleep(1);
         }
 
-        printf("MasterWorker -> connessione con Collector stabilita!\n");
+        V_PRINT_MSG(MASTERWORKER, "connessione con Collector stabilita!")
 
         // Attesa messaggio di conferma dal collector
         //read(server_socket, buffer, BUF_MAX_SIZE);
@@ -144,7 +147,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         }
         */
 
-        printf("MasterWorker -> prima join\n");
+        V_PRINT_MSG(MASTERWORKER, "prima della join");
 
         // Aspetto la fine della coda concorrente
 
@@ -161,20 +164,20 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         }
         free(iterator);
 
-        printf("MasterWorker -> dopo join\n");
+        V_PRINT_MSG(MASTERWORKER, "dopo della join");
 
         // Invio messaggio "STOP"
         send(server_socket, "STOP", strlen("STOP"), 0);
         memset(buffer, 0, BUF_MAX_SIZE);
         read(server_socket, buffer, BUF_MAX_SIZE);
-        printf("Master ha ricevuto: %s\n", buffer);
+        V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
 
         // Chiusura connessione
         close(server_socket);
 
         print_nworkers(lista_w);
         free_lista(lista_w);
-        printf("Chiusura di Masterworker\n");
+        V_PRINT_MSG(MASTERWORKER, "chiusura");
 
     return;
 }
@@ -183,27 +186,27 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
 void handler_signals(int sig_rec) {
     switch(sig_rec) {
         case SIGHUP:
-            write(1, "MasterWorker: ricevuto SIGHUP\n", 31);
+            write(1, "\nMasterWorker -> ricevuto SIGHUP\n", 34);
             stop_signal = 1;
             break;
         case SIGINT:
-            write(1, "MasterWorker: ricevuto SIGINT\n", 31);
+            write(1, "\nMasterWorker -> ricevuto SIGINT\n", 34);
             stop_signal = 1;
             break;
         case SIGQUIT:
-            write(1, "MasterWorker: ricevuto SIGQUIT\n", 32);
+            write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
             stop_signal = 1;
             break;
         case SIGTERM:
-            write(1, "MasterWorker: ricevuto SIGTERM\n", 32);
+            write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
             stop_signal = 1;
             break;
         case SIGUSR1:
-            write(1, "MasterWorker: ricevuto SIGUSR1\n", 32);
+            write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
             usr1_signal = 1;
             break;
         case SIGUSR2:
-            write(1, "MasterWorker: ricevuto SIGUSR2\n", 32);
+            write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
             usr2_signal = 1;
             break;
         default:

@@ -26,10 +26,13 @@
 #define BUF_MAX_SIZE                  255
 #define FILE_LIST_SIZE				 1024
 
+#define len_verbose 20
+
 void usage_help(char* pname);
 int add_dir(const char *dname, char *ar[], int index);
 
 struct sockaddr_un sa;
+int verbose;
 
 // Funzione main per che lancia MasterWorker e fa partire il programma
 int main(int argc, char *argv[]){
@@ -40,10 +43,10 @@ int main(int argc, char *argv[]){
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
 	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
 	char *dname = NULL;		            // path della directory da visitare
-    int verbose = 0;
+    //int verbose = 0;
 
     verbose = 1;
-    VERBOSE_PRINT("FARM APERTA %s\n", "")
+    V_PRINT_MSG(FARM, "apertura");
 
     // Analizza i parametri dati in input -n
     verbose = 0;
@@ -125,6 +128,7 @@ int main(int argc, char *argv[]){
 	signal(SIGPIPE, SIG_IGN);
 
 	// Creazione del processo figlio
+    V_PRINT_MSG(FARM, "creo processo collector");
 	pid = fork();
 	if (pid < 0) {
 		perror("Errore nella creazione del secondo processo\n");
@@ -133,13 +137,19 @@ int main(int argc, char *argv[]){
 
 	if(pid == 0) {
 		// figlio: Collector
+        V_PRINT_MSG(COLLECTOR, "avvio funzione main");
 		collector_main(tdelay);
 	} else {
 		// padre: MasterWorker
 		sleep(1); // Attendo che collector abbia avviato la connessione
+        V_PRINT_MSG(FARM,"avvio processo main di masterworker");
 		masterWorker_main(file_list, list_index, nthread, qlen, dname);
 
+        V_PRINT_MSG(MASTERWORKER,"attendo chiusura di collector");
 		wait(NULL); // Attendo la chiusura di Collector
+
+        verbose = 1;
+        V_PRINT_MSG(FARM,"chiusura");
 	}
 
 	return 0;

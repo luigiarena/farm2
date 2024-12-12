@@ -13,9 +13,12 @@
 #include <sys/wait.h>
 
 #include "collector.h"
+#include "utility.h"
 
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
+
+extern int verbose;
 
 void collector_main(int tdelay) {
 
@@ -24,7 +27,7 @@ void collector_main(int tdelay) {
     struct sockaddr_un sa;
     int nread;
 
-    printf("Sono Collector (PID: %d)\n", getpid());
+    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
     // Maschera i segnali per il processo Collector
     mask_signals_collector();
@@ -35,9 +38,10 @@ void collector_main(int tdelay) {
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
-        perror("Collector error -> creazione socket fallita\n");
+        perror("COLLECTOR ERROR -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
-    } else printf("Collector socket OK\n");
+    } else V_PRINT_MSG(COLLECTOR, "socket creato");
+    //printf("Collector socket OK\n");
 
     // Configurazione socket
     sa.sun_family = AF_UNIX;
@@ -48,16 +52,16 @@ void collector_main(int tdelay) {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    } else printf("Collector bind OK\n");
+    } else V_PRINT_MSG(COLLECTOR, "bind socket");
 
     // Listen
     if (listen(server_socket, 1) == -1                          ) {
         perror("Collector error -> listen connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    } else printf("Collector listen OK\n");
+    } else V_PRINT_MSG(COLLECTOR, "listen socket");
 
-    printf("Collector in ascolto...\n");
+    V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
     int control_collector = 1;
     while (control_collector) {
@@ -82,14 +86,14 @@ void collector_main(int tdelay) {
 
         if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client
-            printf("Collector: sto per  inviare ack\n");
+            V_PRINT_MSG(COLLECTOR, "invio ack per stop");
             char ack[256] = "ack";
             write(client_socket, ack, strlen(ack));
             control_collector = 0;
         }
 
         // Stampa il messaggio ricevuto
-        printf("Collector ha ricevuto: %s\n", buffer);
+        V_PRINT_ARG(COLLECTOR, "ricevuto: %s", buffer);
 
         // Chiude la connessione con il client
         close(client_socket);
@@ -98,7 +102,7 @@ void collector_main(int tdelay) {
     // Chiusura del socket server
     close(server_socket);
     unlink(SOCKET_PATH);
-    printf("Collector terminato.\n");
+    V_PRINT_MSG(COLLECTOR, "chiusura");
 
     // Rimanere attivo per testare i segnali
     /*
