@@ -1,3 +1,11 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: farm.c
+    Descrizione: 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

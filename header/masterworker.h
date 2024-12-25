@@ -1,4 +1,10 @@
-// header file per masterworker
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: masterworker.h
+    Descrizione: 
+*/
 
 void handler_signals(int sig_rec);
 void explore_directory(const char *dname);

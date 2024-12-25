@@ -1,3 +1,11 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: worker_thread.h
+    Descrizione: 
+*/
+
 #include <stdio.h>
 
 typedef struct nodo_proc {

@@ -1,3 +1,10 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: pool_manager.h
+    Descrizione: 
+*/
 
 typedef struct nodo {
     char *file_path;

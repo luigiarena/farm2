@@ -1,4 +1,10 @@
-// header file per collector
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: collector.h
+    Descrizione: 
+*/
 
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
