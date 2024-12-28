@@ -1,3 +1,11 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: collector.c
+    Descrizione: 
+*/
+
 //#define _POSIX_C_SOURCE 1
 
 #include <stdio.h>
@@ -33,7 +41,7 @@ void collector_main(int tdelay) {
     mask_signals_collector();
 
     // Rimuove il vecchio socket se esiste
-    cleanup();
+    unlink(SOCKET_PATH);
 
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -41,7 +49,6 @@ void collector_main(int tdelay) {
         perror("COLLECTOR ERROR -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "socket creato");
-    //printf("Collector socket OK\n");
 
     // Configurazione socket
     sa.sun_family = AF_UNIX;
@@ -63,6 +70,7 @@ void collector_main(int tdelay) {
 
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
+    // Collector entra in un loop di ascolto
     int control_collector = 1;
     while (control_collector) {
         // Accetta connessioni
@@ -116,22 +124,23 @@ void collector_main(int tdelay) {
 
 void mask_signals_collector() {
     sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGHUP);
-    sigaddset(&set, SIGINT);
-    sigaddset(&set, SIGQUIT);
-    sigaddset(&set, SIGTERM);
-    sigaddset(&set, SIGUSR1);
-    sigaddset(&set, SIGUSR2);
-    
-    if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
-        perror("Collector error -> maschera segnali");
-        exit(EXIT_FAILURE);
-    }
-}
+    ec_val(sigemptyset(&set), -1, "Collector sigemptyset mask");
 
-void cleanup() {
-    unlink(SOCKET_PATH);
+    ec_val(sigaddset(&set, SIGHUP), -1, "Collector sigaddset sighup");
+    ec_val(sigaddset(&set, SIGINT), -1, "Collector sigaddset sigint");
+    ec_val(sigaddset(&set, SIGQUIT), -1, "Collector sigaddset sigquit");
+    ec_val(sigaddset(&set, SIGTERM), -1, "Collector sigaddset sigterm");
+    ec_val(sigaddset(&set, SIGUSR1), -1, "Collector sigaddset sigurs1");
+    ec_val(sigaddset(&set, SIGUSR2), -1, "Collector sigaddset sigusr2");
+    
+    ec_not(pthread_sigmask(SIG_BLOCK, &set, NULL), 0, "Collector set sigmask");
+
+    // Ignoro SIGPIPE
+    struct sigaction saction;
+    memset(&saction, 0, sizeof(saction));
+    saction.sa_handler = SIG_IGN;
+    ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Collector sigaction ignore");
+
 }
 
 // Stampa lista dei risultati

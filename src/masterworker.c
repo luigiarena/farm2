@@ -1,3 +1,11 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: masterworker.c
+    Descrizione: 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -10,7 +18,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
-//#include <sys/types.h>
+#include <sys/types.h>
 //#include <sys/wait.h>
 
 #include "masterworker.h"
@@ -22,11 +30,11 @@
 #define BUF_MAX_SIZE                  255
 #define MAX_NCONN                      10
 
-volatile sig_atomic_t stop_signal = 0;
-volatile sig_atomic_t usr1_signal = 0;
-volatile sig_atomic_t usr2_signal = 0;
-
 extern int verbose;
+
+volatile sig_atomic_t stop_signal = 0;
+volatile sig_atomic_t usr_counter = 0;
+pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 Worker_list *lista_w;
 Coda coda_concorrente;
@@ -37,17 +45,14 @@ int no_more_files = 0;
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
+static void *handler_signals(void *arg);
+
 void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
-    int server_socket;
-    //int n_workers = nthread;
-
-    struct sockaddr_un sa;
-    char buffer[BUF_MAX_SIZE];
-
     //pthread_t worker_pool[nthread];
 
+/*
     // Gestore segnali per il MasterWorker
     signal(SIGHUP, handler_signals);
     //signal(SIGINT, handler_signals);
@@ -55,8 +60,45 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
     signal(SIGTERM, handler_signals);
     signal(SIGUSR1, handler_signals);
     signal(SIGUSR2, handler_signals);
+*/
+	// Gestisco segnali per MasterWorker
+	sigset_t mask;
+
+    ec_val(sigemptyset(&mask), -1, "Masterworker sigemptyset mask");
+
+    ec_val(sigaddset(&mask, SIGHUP), -1, "Masterworker sigaddset sighup");
+    ec_val(sigaddset(&mask, SIGINT), -1, "Masterworker sigaddset sigint");
+    ec_val(sigaddset(&mask, SIGQUIT), -1, "Masterworker sigaddset sigquit");
+    ec_val(sigaddset(&mask, SIGTERM), -1, "Masterworker sigaddset sigterm");
+    ec_val(sigaddset(&mask, SIGUSR1), -1, "Masterworker sigaddset sigusr1");
+    ec_val(sigaddset(&mask, SIGUSR2), -1, "Masterworker sigaddset sigusr2");
+    // PER TEST
+    ec_val(sigaddset(&mask, SIGTSTP), -1, "Masterworker sigaddset sigtstp");
+
+    // Ignoro SIGPIPE
+    struct sigaction saction;
+    memset(&saction, 0, sizeof(saction));
+    saction.sa_handler = SIG_IGN;
+    ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Masterworker sigaction ignore");
+
+    // Applico sigmask
+    ec_not(pthread_sigmask(SIG_BLOCK, &mask, NULL), 0, "Masterworker set sigmask");
+
+    // Creo un thread detached che gestisce i segnali
+    pthread_t handlerThread;
+    ec_not(pthread_create(&handlerThread, NULL, &handler_signals, &mask), 0, "Masterworker pthread_create");
+    ec_not(pthread_detach(handlerThread), 0, "Masterworker pthread_detach");
+
+    // PER TEST
+    // signal(SIGTSTP, handler_signals);
 
     // Creazione socket
+    int server_socket;
+    //int n_workers = nthread;
+
+    struct sockaddr_un sa;
+    char buffer[BUF_MAX_SIZE];
+
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
         perror("MasterWorker error -> creazione socket fallita\n");
@@ -98,21 +140,29 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
 
         // FACCIO COSE
         int index = 0;
+        int max_ciclo = 30;
+        int ind_ciclo = 0;
+        //while(!stop_signal && ind_ciclo<=max_ciclo)
         while(!stop_signal)
         {
-            if (usr1_signal != 0) {
+            ind_ciclo++;
+            printf("Sono dentro il ciclo di masterworker\n");
+            // RIVEDERE
+            if (usr_counter > 0) {
                 add_worker(lista_w);
-                usr1_signal = 0;
+                usr_counter--;
             }
-            if (usr2_signal != 0) {
+            if (usr_counter < 0) {
                 // DA FINIRE
                 //del_worker();
-                usr2_signal = 0;
+                usr_counter++;
             }
 
             if (!no_more_files && coda_concorrente.size < qlen) {
                 // Aggiungo prima i file inseriti come argomenti e
                 // poi quelli contenuti nella directory indicata
+            printf("Sono dentro il ciclo di aggiunta file in cc\n");
+            printf("Lunghezza coda: %d\n", coda_concorrente.size);
                 if (index < list_index) {
                     push_file(&coda_concorrente, file_list[index]);
                     index++;
@@ -183,35 +233,53 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
 }
 
 // Funzione per la gestione dei segnali in MasterWorker
-void handler_signals(int sig_rec) {
-    switch(sig_rec) {
-        case SIGHUP:
-            write(1, "\nMasterWorker -> ricevuto SIGHUP\n", 34);
-            stop_signal = 1;
-            break;
-        case SIGINT:
-            write(1, "\nMasterWorker -> ricevuto SIGINT\n", 34);
-            stop_signal = 1;
-            break;
-        case SIGQUIT:
-            write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
-            stop_signal = 1;
-            break;
-        case SIGTERM:
-            write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
-            stop_signal = 1;
-            break;
-        case SIGUSR1:
-            write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
-            usr1_signal = 1;
-            break;
-        case SIGUSR2:
-            write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
-            usr2_signal = 1;
-            break;
-        default:
-            break;
+static void *handler_signals(void *arg) {
+
+    int sig;
+    while(!stop_signal) {
+        if (sigwait((sigset_t *)arg, &sig) != 0) {
+            perror("fatal error: sigwait");
+            return NULL;
+        }
+        switch(sig) {
+            case SIGHUP:
+                write(1, "\nMasterWorker -> ricevuto SIGHUP\n", 34);
+                stop_signal = 1;
+                break;
+            case SIGINT:
+                write(1, "\nMasterWorker -> ricevuto SIGINT\n", 34);
+                stop_signal = 1;
+                break;
+            case SIGQUIT:
+                write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
+                stop_signal = 1;
+                break;
+            case SIGTERM:
+                write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
+                stop_signal = 1;
+                break;
+            case SIGUSR1:
+                write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
+                pthread_mutex_lock(&usr_counter_mutex);
+                usr_counter++;
+                pthread_mutex_unlock(&usr_counter_mutex);
+                break;
+            case SIGUSR2:
+                write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
+                pthread_mutex_lock(&usr_counter_mutex);
+                usr_counter++;
+                pthread_mutex_unlock(&usr_counter_mutex);
+                break;
+            // PER TEST - da eliminare
+            case SIGTSTP:
+                write(1, "\nMasterWorker -> ricevuto SIGTSTP\n", 35);
+                usr_counter++;
+                //signal(SIGTSTP, handler_signals);
+            default:
+                break;
+        }
     }
+    return NULL;
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
@@ -314,6 +382,7 @@ void add_worker(Worker_list *l) {
         }
     }
     l->count_w = i;
+    // w->tid = i;
 
     // Creo il nuovo worker thread
     if (pthread_create(&w->tid, NULL, worker_thread, &coda_concorrente)) {
