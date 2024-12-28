@@ -19,5 +19,4 @@ typedef struct result {
 
 void printlist(result_t *list);
 void mask_signals_collector();
-void cleanup();
 void collector_main(int tdelay);
