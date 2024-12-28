@@ -34,3 +34,5 @@
 #define ec_not(res,val,msg)  if((res)!=val) {perror(msg); exit(EXIT_FAILURE);}
 
 void usage_help();
+
+int sleepTime(long miliseconds);

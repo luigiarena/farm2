@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -28,12 +29,19 @@
 
 extern int verbose;
 
+static int control_collector;
+static int control_printer;
+
+static void *printerThread (void *arg);
+
 void collector_main(int tdelay) {
 
     char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
     struct sockaddr_un sa;
     int nread;
+
+    result_t result_list;
 
     V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
@@ -70,8 +78,19 @@ void collector_main(int tdelay) {
 
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
+    // Avvia il thread printer per la stampa parziale dei risultati
+    control_printer = 1;
+
+    pthread_t printerId;
+    if (pthread_create(&printerId, NULL, printerThread, &result_list) != 0) {
+        perror("Collector -> errore durante la creazione di printer");
+        control_printer = 0;
+        control_collector = 0;
+        exit(EXIT_FAILURE);
+    } else V_PRINT_MSG(COLLECTOR, "printer avviato");
+
     // Collector entra in un loop di ascolto
-    int control_collector = 1;
+    control_collector = 1;
     while (control_collector) {
         // Accetta connessioni
         client_socket = accept(server_socket, NULL, NULL);
@@ -151,4 +170,15 @@ void printlist(result_t *lista_res) {
 		iter=iter->next;
 	}
 	fflush(stdout);
+}
+
+static void *printerThread (void *arg) {
+    result_t *result_list = (result_t *) arg;
+    int i=0;
+    while(control_printer) {
+        printf("Test di stampa del printer %d\n", ++i);
+        //usleep(1000);
+        sleepTime(1000);
+    }
+    return NULL;
 }
