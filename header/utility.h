@@ -28,4 +28,9 @@
 #define V_PRINT_MSG(caller, msg)        if(verbose)fprintf(stderr,caller " -> " msg "\n");
 #define V_PRINT_ARG(caller, msg,...)    if(verbose)fprintf(stderr,caller " -> " msg "\n",__VA_ARGS__);
 
+// Macro per la cattura di eccezioni == val
+#define ec_val(res,val,msg)  if((res)==val) {perror(msg); exit(EXIT_FAILURE);}
+// Macro per la cattura di eccezioni != val
+#define ec_not(res,val,msg)  if((res)!=val) {perror(msg); exit(EXIT_FAILURE);}
+
 void usage_help();
