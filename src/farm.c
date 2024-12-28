@@ -95,6 +95,7 @@ int main(int argc, char *argv[]){
                 break;
             case 'd':
                 dname = optarg;
+                //if (dname != NULL) list_index = add_dir(dname, file_list, list_index);
                 break;
             default:
             usage_help(argv[0]);
@@ -150,12 +151,15 @@ int main(int argc, char *argv[]){
 	} else {
 		// padre: MasterWorker
 		sleep(1); // Attendo che collector abbia avviato la connessione
+
         V_PRINT_MSG(FARM,"avvio processo main di masterworker");
 		masterWorker_main(file_list, list_index, nthread, qlen, dname);
 
         V_PRINT_MSG(MASTERWORKER,"attendo chiusura di collector");
 		wait(NULL); // Attendo la chiusura di Collector
 
+        // Calcella il socket
+        unlink(SOCKET_PATH);
         verbose = 1;
         V_PRINT_MSG(FARM,"chiusura");
 	}
