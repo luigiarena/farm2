@@ -32,7 +32,7 @@ extern int verbose;
 static int control_collector;
 static int control_printer;
 
-result_t *result_link = NULL;
+result_t *result_list = NULL;
 
 static void *printerThread (void *arg);
 
@@ -42,8 +42,6 @@ void collector_main(int tdelay) {
     int server_socket, client_socket;
     struct sockaddr_un sa;
     int nread;
-
-    result_t result_list;
 
     V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
@@ -80,7 +78,7 @@ void collector_main(int tdelay) {
 
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
-    result_link = NULL;
+    result_list = NULL;
 
     add_res(10, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
@@ -108,7 +106,7 @@ void collector_main(int tdelay) {
     control_printer = 1;
 
     pthread_t printerId;
-    if (pthread_create(&printerId, NULL, printerThread, &result_link) != 0) {
+    if (pthread_create(&printerId, NULL, printerThread, NULL) != 0) {
         perror("Collector -> errore durante la creazione di printer");
         control_printer = 0;
         control_collector = 0;
@@ -139,10 +137,15 @@ void collector_main(int tdelay) {
 
         if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client
-            V_PRINT_MSG(COLLECTOR, "invio ack per stop");
+            control_collector = 0;
+            control_printer = 0;
+            V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
+            printlist();
+            free_res(result_list);
+            //sleep(3);
+            V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
             write(client_socket, ack, strlen(ack));
-            control_collector = 0;
         }
 
         // Stampa il messaggio ricevuto
@@ -190,7 +193,7 @@ void mask_signals_collector() {
 
 // Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
 int add_res(long sum, char *path) {
-    result_t *iter = result_link;
+    result_t *iter = result_list;
     result_t *new;
     int trovato = 0;
 
@@ -202,10 +205,10 @@ int add_res(long sum, char *path) {
     strncpy(new->path, path, PATH_MAX_LEN);
 
     if(iter == NULL) {
-        result_link = new;
+        result_list = new;
     } else if(iter->sum > sum) {
-        new->next = result_link;
-        result_link = new;
+        new->next = result_list;
+        result_list = new;
     } else {
         while(iter->next != NULL && iter->next->sum <= sum)
             iter = iter->next;
@@ -217,13 +220,18 @@ int add_res(long sum, char *path) {
     return 0;
 }
 
+void free_res(result_t *res) {
+    if(res->next != NULL) free_res(res->next);
+    free(res);
+}
+
 // Stampa lista dei risultati
 void printlist() {
-	result_t *iter = result_link;
+	result_t *iter = result_list;
     //int i=0;
 	while(iter != NULL) {
         //printf("ciclo di stampa %d\n", i++);
-		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
+		fprintf(stdout, "%10ld %s\n", iter->sum, iter->path);
 		iter=iter->next;
 	}
 	fflush(stdout);
@@ -234,7 +242,7 @@ static void *printerThread (void *arg) {
 
     while(control_printer) {
         //printf("Test di stampa del printer %d\n", ++i);
-        if(result_link != NULL) printlist();
+        if(result_list != NULL) printlist();
         //usleep(1000);
         sleepTime(1000);
     }
