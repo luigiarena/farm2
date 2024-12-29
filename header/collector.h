@@ -17,6 +17,8 @@ typedef struct result {
 	struct result *next;
 } result_t;
 
-void printlist(result_t *list);
+//void printlist(result_t *list);
+void printlist();
 void mask_signals_collector();
+int add_res(long sum, char *path);
 void collector_main(int tdelay);

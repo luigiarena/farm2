@@ -32,6 +32,8 @@ extern int verbose;
 static int control_collector;
 static int control_printer;
 
+result_t *result_link = NULL;
+
 static void *printerThread (void *arg);
 
 void collector_main(int tdelay) {
@@ -78,11 +80,35 @@ void collector_main(int tdelay) {
 
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
+    result_link = NULL;
+
+    add_res(10, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(2, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(3, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(5, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(8, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(1, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(7, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(9, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(4, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    add_res(6, "ciao ciao");
+    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+
+
     // Avvia il thread printer per la stampa parziale dei risultati
     control_printer = 1;
 
     pthread_t printerId;
-    if (pthread_create(&printerId, NULL, printerThread, &result_list) != 0) {
+    if (pthread_create(&printerId, NULL, printerThread, &result_link) != 0) {
         perror("Collector -> errore durante la creazione di printer");
         control_printer = 0;
         control_collector = 0;
@@ -162,7 +188,58 @@ void mask_signals_collector() {
 
 }
 
+// Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
+int add_res(long sum, char *path) {
+    result_t *iter = result_link;
+    result_t *new;
+    int trovato = 0;
+
+    new = malloc(sizeof(result_t));
+    if(new == NULL) return -1;
+
+    new->next = NULL;
+    new->sum = sum;
+    strncpy(new->path, path, PATH_MAX_LEN);
+
+    if(iter == NULL) {
+        result_link = new;
+    } else if(iter->sum > sum) {
+        new->next = result_link;
+        result_link = new;
+    } else {
+        while(iter->next != NULL && iter->next->sum <= sum)
+            iter = iter->next;
+
+        if(iter->next != NULL) new->next = iter->next;
+        iter->next = new;
+    }
+
+    return 0;
+}
+
 // Stampa lista dei risultati
+void printlist() {
+	result_t *iter = result_link;
+    //int i=0;
+	while(iter != NULL) {
+        //printf("ciclo di stampa %d\n", i++);
+		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
+		iter=iter->next;
+	}
+	fflush(stdout);
+}
+
+static void *printerThread (void *arg) {
+    //int i=0;
+
+    while(control_printer) {
+        //printf("Test di stampa del printer %d\n", ++i);
+        if(result_link != NULL) printlist();
+        //usleep(1000);
+        sleepTime(1000);
+    }
+    return NULL;
+}/*
 void printlist(result_t *lista_res) {
 	result_t *iter = lista_res;
 	while(iter != NULL) {
@@ -177,8 +254,10 @@ static void *printerThread (void *arg) {
     int i=0;
     while(control_printer) {
         printf("Test di stampa del printer %d\n", ++i);
+        printlist();
         //usleep(1000);
         sleepTime(1000);
     }
     return NULL;
 }
+*/
