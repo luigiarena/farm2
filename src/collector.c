@@ -27,6 +27,8 @@
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
 
+pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 extern int verbose;
 
 static int control_collector;
@@ -193,6 +195,7 @@ void mask_signals_collector() {
 
 // Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
 int add_res(long sum, char *path) {
+    pthread_mutex_lock(&result_mutex);
     result_t *iter = result_list;
     result_t *new;
     int trovato = 0;
@@ -216,7 +219,7 @@ int add_res(long sum, char *path) {
         if(iter->next != NULL) new->next = iter->next;
         iter->next = new;
     }
-
+    pthread_mutex_unlock(&result_mutex);
     return 0;
 }
 
@@ -228,7 +231,7 @@ void free_res(result_t *res) {
 // Stampa lista dei risultati
 void printlist() {
 	result_t *iter = result_list;
-    //int i=0;
+
 	while(iter != NULL) {
         //printf("ciclo di stampa %d\n", i++);
 		fprintf(stdout, "%10ld %s\n", iter->sum, iter->path);
@@ -238,34 +241,14 @@ void printlist() {
 }
 
 static void *printerThread (void *arg) {
-    //int i=0;
-
     while(control_printer) {
         //printf("Test di stampa del printer %d\n", ++i);
-        if(result_list != NULL) printlist();
-        //usleep(1000);
-        sleepTime(1000);
-    }
-    return NULL;
-}/*
-void printlist(result_t *lista_res) {
-	result_t *iter = lista_res;
-	while(iter != NULL) {
-		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
-		iter=iter->next;
-	}
-	fflush(stdout);
-}
-
-static void *printerThread (void *arg) {
-    result_t *result_list = (result_t *) arg;
-    int i=0;
-    while(control_printer) {
-        printf("Test di stampa del printer %d\n", ++i);
-        printlist();
-        //usleep(1000);
+        if(result_list != NULL) {
+            pthread_mutex_lock(&result_mutex);
+            printlist();
+            pthread_mutex_unlock(&result_mutex);
+        }
         sleepTime(1000);
     }
     return NULL;
 }
-*/
