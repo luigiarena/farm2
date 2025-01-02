@@ -22,11 +22,11 @@
 #include <sys/wait.h>
 
 #include "collector.h"
-#include "utility.h"
-
+//#include "utility.h"
+/*
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
-
+*/
 pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 extern int verbose;
@@ -82,6 +82,7 @@ void collector_main(int tdelay) {
 
     result_list = NULL;
 
+    // Inserzioni di TEST
     add_res(10, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(2, "ciao ciao");
@@ -198,7 +199,6 @@ int add_res(long sum, char *path) {
     pthread_mutex_lock(&result_mutex);
     result_t *iter = result_list;
     result_t *new;
-    int trovato = 0;
 
     new = malloc(sizeof(result_t));
     if(new == NULL) return -1;

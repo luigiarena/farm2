@@ -20,6 +20,6 @@ Coda crea_coda() {
     return q;
 }
 
-void distruggi() {
-
+void distruggi_coda() {
+    
 }

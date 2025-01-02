@@ -6,9 +6,13 @@
     Descrizione: 
 */
 
+/*
 #define SOCKET_PATH			"./farm2.sck"
 #define BUF_MAX_SIZE                  255
 #define PATH_MAX_LEN                  255
+*/
+
+#include "utility.h"
 
 // Struttura necessaria alla creazione di una lista per i risultati ricevuti da Collector
 typedef struct result {

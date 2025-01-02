@@ -16,9 +16,9 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/types.h>
+//#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
+//#include <sys/stat.h>
 
 #include "utility.h"
 #include "masterworker.h"
@@ -29,18 +29,17 @@
 #define QLEN_DEFAULT					8
 #define TDELAY_DEFAULT					0
 #define DNAME_PATHLEN				  255
-#define SOCKET_PATH			"./farm2.sck"
-#define SOCKET_PATH_LEN				   11
-#define BUF_MAX_SIZE                  255
-#define FILE_LIST_SIZE				 1024
+//#define SOCKET_PATH			"./farm2.sck"
+//#define SOCKET_PATH_LEN				   11
+//#define BUF_MAX_SIZE                  255
 
 #define len_verbose 20
 
-void usage_help(char* pname);
+void usage_help(char *pname);
 int add_dir(const char *dname, char *ar[], int index);
 
 struct sockaddr_un sa;
-int verbose;
+extern int verbose;
 
 // Funzione main per che lancia MasterWorker e fa partire il programma
 int main(int argc, char *argv[]){
@@ -51,10 +50,6 @@ int main(int argc, char *argv[]){
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
 	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
 	char *dname = NULL;		            // path della directory da visitare
-    //int verbose = 0;
-
-    verbose = 1;
-    V_PRINT_MSG(FARM, "apertura");
 
     // Analizza i parametri dati in input -n
     verbose = 0;
@@ -103,38 +98,44 @@ int main(int argc, char *argv[]){
         }
     }
 
+    V_PRINT_MSG(FARM, "apertura");
+
     // Se non esistono argomenti e -d non è settato chiudo
+    int num_file = 0;
 	if (optind >= argc && dname == NULL) {
 		fprintf(stderr, "Nessun argomento fornito al programma.\n");
         usage_help(argv[0]);
 		exit(EXIT_FAILURE);
-	}
-
-	// Creo un array di tutti i file da passare a masterworker
-	char *file_list[FILE_LIST_SIZE];
-	for (int i=0; i<FILE_LIST_SIZE; i++) file_list[i] = malloc(BUF_MAX_SIZE);
-
-	int list_index = 0;
-	while (optind < argc) {
-		strncpy(file_list[list_index], argv[optind], BUF_MAX_SIZE);
-        optind++;
-		list_index++;
+	} else {
+        // Altrimenti inizializzo un array dei file inseriti come argomenti
+        num_file = argc-optind;
+        if (dname != NULL) num_file++;
     }
 
-	if (dname != NULL) list_index = add_dir(dname, file_list, list_index);
+    char *file_list[num_file];
+    int index;
+    for (index=0; index<num_file; index++) file_list[index] = malloc(PATH_MAX_LEN);
 
-	if (list_index == -1) {
-		perror("Errore nella lettura della directory\n");
-		exit(EXIT_FAILURE);
-	}
+    index = 0;
+    while (optind < argc) {
+        strncpy(file_list[index], argv[optind], PATH_MAX_LEN);
+        optind++;
+        index++;
+    }
 
+    // TEST
+    if (dname != NULL) strncpy(file_list[index], dname, PATH_MAX_LEN);
+    // TEST
+    printf("Numero di argomenti: %d\n", num_file);
 
-	// Creo il file socket
-    sa.sun_family = AF_UNIX;
-    strncpy(sa.sun_path, SOCKET_PATH, strlen(SOCKET_PATH)+1);
+    for(int i=0; i<num_file; i++) printf("file n.%d: %s\n", i, file_list[i]);
+
+	// Creo il file socket SERVE??
+    //sa.sun_family = AF_UNIX;
+    //strncpy(sa.sun_path, SOCKET_PATH, strlen(SOCKET_PATH)+1);
 
 	// Ignora SIGPIPE per tutti
-	signal(SIGPIPE, SIG_IGN);
+	//signal(SIGPIPE, SIG_IGN);
 
 	// Creazione del processo figlio
     V_PRINT_MSG(FARM, "creo processo collector");
@@ -153,14 +154,11 @@ int main(int argc, char *argv[]){
 		sleep(1); // Attendo che collector abbia avviato la connessione
 
         V_PRINT_MSG(FARM,"avvio processo main di masterworker");
-		masterWorker_main(file_list, list_index, nthread, qlen, dname);
+		masterWorker_main(file_list, num_file, nthread, qlen, dname);
 
         V_PRINT_MSG(MASTERWORKER,"attendo chiusura di collector");
 		wait(NULL); // Attendo la chiusura di Collector
 
-        // Calcella il socket
-        unlink(SOCKET_PATH);
-        verbose = 1;
         V_PRINT_MSG(FARM,"chiusura");
 	}
 
@@ -171,7 +169,7 @@ int main(int argc, char *argv[]){
 void usage_help(char* pname) {
     fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", pname);
 }
-
+/*
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 int add_dir(const char *dname, char *ar[], int index) {
     struct dirent *entry;
@@ -215,3 +213,4 @@ int add_dir(const char *dname, char *ar[], int index) {
     closedir(dir);
 	return index;
 }
+*/

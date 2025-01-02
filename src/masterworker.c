@@ -18,7 +18,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+//#include <sys/types.h>
 //#include <sys/wait.h>
 
 #include "masterworker.h"
@@ -26,8 +26,8 @@
 #include "pool_manager.h"
 #include "utility.h"
 
-#define SOCKET_PATH			"./farm2.sck"
-#define BUF_MAX_SIZE                  255
+//#define SOCKET_PATH			"./farm2.sck"
+//#define BUF_MAX_SIZE                  255
 #define MAX_NCONN                      10
 
 extern int verbose;
@@ -72,8 +72,6 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
     ec_val(sigaddset(&mask, SIGTERM), -1, "Masterworker sigaddset sigterm");
     ec_val(sigaddset(&mask, SIGUSR1), -1, "Masterworker sigaddset sigusr1");
     ec_val(sigaddset(&mask, SIGUSR2), -1, "Masterworker sigaddset sigusr2");
-    // PER TEST
-    ec_val(sigaddset(&mask, SIGTSTP), -1, "Masterworker sigaddset sigtstp");
 
     // Ignoro SIGPIPE
     struct sigaction saction;
@@ -88,9 +86,6 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
     pthread_t handlerThread;
     ec_not(pthread_create(&handlerThread, NULL, &handler_signals, &mask), 0, "Masterworker pthread_create");
     ec_not(pthread_detach(handlerThread), 0, "Masterworker pthread_detach");
-
-    // PER TEST
-    // signal(SIGTSTP, handler_signals);
 
     // Creazione socket
     int server_socket;
@@ -139,15 +134,16 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         }
 
         // FACCIO COSE
-        int index = 0;
-        int max_ciclo = 30;
+        //int index = 0;
+        //int max_ciclo = 30;
         int ind_ciclo = 0;
         //while(!stop_signal && ind_ciclo<=max_ciclo)
         while(!stop_signal)
         {
             ind_ciclo++;
-            printf("Sono dentro il ciclo di masterworker\n");
+            //printf("Sono dentro il ciclo di masterworker\n");
             // RIVEDERE
+            /*
             if (usr_counter > 0) {
                 add_worker(lista_w);
                 usr_counter--;
@@ -170,6 +166,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
                     no_more_files = 1;
                 }                
             }
+            **/
 
             //printf("MasterWorker -> ciclo\n");
             //sleep(1);
@@ -183,7 +180,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
             push_file(&coda_concorrente, argv[optind]);  
         }
         */
-
+/*
         int len = coda_concorrente.size;
         printf("Coda size: %d\n", coda_concorrente.size);
         Nodo *test = coda_concorrente.head;
@@ -191,6 +188,7 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
             printf("Iter file: %s\n", test->file_path);
             test = test->next;
         }
+*/
         /*
         for (int i=0; i<len; i++) {
             printf("Verifica file: %s\n", pop_file(&coda_concorrente));
@@ -222,10 +220,12 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         read(server_socket, buffer, BUF_MAX_SIZE);
         V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
 
-        // Chiusura connessione
+        // Chiusura connessione e cancellazione del socket
         close(server_socket);
+        unlink(SOCKET_PATH);
 
-        print_nworkers(lista_w);
+        // Salvo su file il numero di thread worker attivi
+        save_nworkers(lista_w, "nworkeratexit.txt");
         free_lista(lista_w);
         V_PRINT_MSG(MASTERWORKER, "chiusura");
 
@@ -243,38 +243,38 @@ static void *handler_signals(void *arg) {
         }
         switch(sig) {
             case SIGHUP:
-                write(1, "\nMasterWorker -> ricevuto SIGHUP\n", 34);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGHUP\n", 34);
                 stop_signal = 1;
                 break;
             case SIGINT:
-                write(1, "\nMasterWorker -> ricevuto SIGINT\n", 34);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGINT\n", 34);
                 stop_signal = 1;
                 break;
             case SIGQUIT:
-                write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
                 stop_signal = 1;
+                printf("usr_counter prima: %d\n", usr_counter);
+                pthread_mutex_lock(&usr_counter_mutex);
+                usr_counter++;
+                pthread_mutex_unlock(&usr_counter_mutex);
+                printf("usr_counter dopo: %d\n", usr_counter);
                 break;
             case SIGTERM:
-                write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
                 stop_signal = 1;
                 break;
             case SIGUSR1:
-                write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
                 pthread_mutex_lock(&usr_counter_mutex);
                 usr_counter++;
                 pthread_mutex_unlock(&usr_counter_mutex);
                 break;
             case SIGUSR2:
-                write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
+                if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
                 pthread_mutex_lock(&usr_counter_mutex);
                 usr_counter++;
                 pthread_mutex_unlock(&usr_counter_mutex);
                 break;
-            // PER TEST - da eliminare
-            case SIGTSTP:
-                write(1, "\nMasterWorker -> ricevuto SIGTSTP\n", 35);
-                usr_counter++;
-                //signal(SIGTSTP, handler_signals);
             default:
                 break;
         }
@@ -343,7 +343,7 @@ int push_file(Coda *c, char *path) {
     return c->size++;
 }
 
-char* pop_file(Coda *c) {
+char *pop_file(Coda *c) {
     char* path = malloc(BUF_MAX_SIZE);
 
     if (c->head == NULL) return NULL;
@@ -394,11 +394,6 @@ void add_worker(Worker_list *l) {
 
 void rem_worker(Worker_list *l) {
 
-}
-
-void print_nworkers(Worker_list *l) {
-    printf("Numero di Thread Worker alla chiusura: %d\n", l->count_w);
-    return;
 }
 
 void free_lista(Worker_list *l) {

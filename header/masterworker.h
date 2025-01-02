@@ -6,6 +6,16 @@
     Descrizione: 
 */
 
-void handler_signals(int sig_rec);
+/*
+typedef struct worker_data {
+    int worker_id;
+    // questo void sarà castato per contenere un puntatore alla coda concorrente, qui non definita
+    Coda *coda_link;
+    // Serve?
+    Worker_list *w_list_link;
+} Worker_data;
+*/
+
+//static void *handler_signals(void *arg);
 void explore_directory(const char *dname);
 void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname);
