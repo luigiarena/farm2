@@ -24,6 +24,16 @@ typedef struct worker_list {
     Worker_node *head;
 } Worker_list;
 
+/*
+typedef struct worker_data {
+    int worker_id;
+    // questo void sarà castato per contenere un puntatore alla coda concorrente, qui non definita
+    void *coda_link;
+    // Serve?
+    Worker_list *w_list_link;
+} Worker_data;
+*/
+
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg);
 
@@ -35,7 +45,7 @@ void add_worker(Worker_list *l);
 
 void rem_worker(Worker_list *l);
 
-void print_nworkers(Worker_list *l);
+void save_nworkers(Worker_list *l, char *nworker_file);
 
 void free_lista(Worker_list *l);
 

@@ -1,7 +1,16 @@
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: worker_thread.c
+    Descrizione: 
+*/
+
 #define _POSIX_C_SOURCE 1
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
@@ -19,29 +28,36 @@ extern int verbose;
 extern int coda_vuota;
 extern int no_more_files;
 
-extern Worker_list lista;
+Worker_list *lista_w;
 extern Coda coda_concorrente;
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
     mask_signals_worker();
 
-    Coda *cc = (Coda *) arg;
+    //Coda *cc = (Coda *) arg;
 
     int id = pthread_self();
+    //int id = lista_w->count_w;
 
     while (!stop_signal && !no_more_files) {
         V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
-
+/*
         pthread_mutex_lock(&cc->lock);
         if (&cc->not_empty && no_more_files) {
             pthread_mutex_unlock(&cc->lock);
             break;
         }
+*/
+        // AGGIUNGI CONTROLLO PER USR2
+
+        /*
         while (cc->size == 0) {
             //pthread_cond_wait();
         }
+        */
 
+        /*
         char *path_file = pop_file(cc);
 
         pthread_cond_signal(&cc->not_full);
@@ -49,24 +65,32 @@ void* worker_thread(void* arg) {
 
         long result = calcola_res(path_file);
         if (result == -1) return NULL;
+        */
     }
+
+    V_PRINT_ARG(WORKER, "(%d) termina", id);
     
     return NULL;
 }
 
 void mask_signals_worker() {
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGHUP);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGQUIT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGPIPE);
-    sigaddset(&mask, SIGUSR1);
+    sigset_t set;
+    ec_val(sigemptyset(&set), -1, "Worker sigemptyset mask");
 
-    if (pthread_sigmask(SIG_BLOCK, &mask, NULL) != 0) {
-        perror("Thread Worker error -> maschera segnali");
-    }
+    ec_val(sigaddset(&set, SIGHUP), -1, "Worker sigaddset sighup");
+    ec_val(sigaddset(&set, SIGINT), -1, "Worker sigaddset sigint");
+    ec_val(sigaddset(&set, SIGQUIT), -1, "Worker sigaddset sigquit");
+    ec_val(sigaddset(&set, SIGTERM), -1, "Worker sigaddset sigterm");
+    ec_val(sigaddset(&set, SIGUSR1), -1, "Worker sigaddset sigurs1");
+    ec_val(sigaddset(&set, SIGUSR2), -1, "Worker sigaddset sigusr2");
+    
+    ec_not(pthread_sigmask(SIG_BLOCK, &set, NULL), 0, "Worker set sigmask");
+
+    // Ignoro SIGPIPE
+    struct sigaction saction;
+    memset(&saction, 0, sizeof(saction));
+    saction.sa_handler = SIG_IGN;
+    ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Worker sigaction ignore");
 }
 
 long calcola_res (char *path_file){
@@ -100,4 +124,15 @@ long calcola_res (char *path_file){
         result+=(i*vals[i]);
     }
     return result;
+}
+
+// Salva il numero di worker su file
+void save_nworkers(Worker_list *l, char *nworker_file) {
+    printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", l->count_w);
+    FILE *fp = fopen(nworker_file, "w");
+    ec_val(fp, NULL, "Errore apertura file nworker");
+    fprintf(fp, "%d\n", l->count_w);
+    fclose(fp);
+
+    return;
 }
