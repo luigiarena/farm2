@@ -1,6 +1,8 @@
-#include <stdio.h>
+//#include <stdio.h>
 #include <time.h>   /* Needed for struct timespec */
 #include "utility.h"
+
+int verbose;
 
 int sleepTime(long miliseconds)
 {

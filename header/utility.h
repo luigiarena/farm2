@@ -33,6 +33,11 @@
 // Macro per la cattura di eccezioni != val
 #define ec_not(res,val,msg)  if((res)!=val) {perror(msg); exit(EXIT_FAILURE);}
 
+// Definizioni di alcune costanti comuni
+#define SOCKET_PATH			"./farm2.sck"
+#define BUF_MAX_SIZE                  255
+#define PATH_MAX_LEN                  255
+
 void usage_help();
 
 int sleepTime(long miliseconds);
