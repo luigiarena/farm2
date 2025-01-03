@@ -45,7 +45,7 @@ void add_worker(Worker_list *l);
 
 void rem_worker(Worker_list *l);
 
-void save_nworkers(Worker_list *l, char *nworker_file);
+void save_nworkers(Worker_list *l, char *name_file);
 
 void free_list(Worker_list *l);
 

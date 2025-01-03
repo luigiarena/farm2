@@ -127,9 +127,9 @@ long calcola_res (char *path_file){
 }
 
 // Salva il numero di worker su file
-void save_nworkers(Worker_list *l, char *nworker_file) {
+void save_nworkers(Worker_list *l, char *name_file) {
     printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", l->count_w);
-    FILE *fp = fopen(nworker_file, "w");
+    FILE *fp = fopen(name_file, "w");
     ec_val(fp, NULL, "Errore apertura file nworker");
     fprintf(fp, "%d\n", l->count_w);
     fclose(fp);
