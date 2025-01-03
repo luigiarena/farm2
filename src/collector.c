@@ -83,27 +83,16 @@ void collector_main(long tdelay) {
     result_list = NULL;
 
     // Inserzioni di TEST
-    add_res(10, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(2, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(3, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(5, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(8, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(1, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(7, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(9, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(4, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(6, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-
 
     // Avvia il thread printer per la stampa parziale dei risultati
     control_printer = 1;
@@ -163,7 +152,7 @@ void collector_main(long tdelay) {
     unlink(SOCKET_PATH);
     V_PRINT_MSG(COLLECTOR, "chiusura");
 
-    // Rimanere attivo per testare i segnali
+    // Rimane attivo per testare i segnali
     /*
     int i = 0;
     while (++i < 5) {

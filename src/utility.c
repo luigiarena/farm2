@@ -1,5 +1,4 @@
-//#include <stdio.h>
-#include <time.h>   /* Needed for struct timespec */
+#include <time.h> 
 #include "utility.h"
 
 int verbose;

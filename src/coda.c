@@ -67,7 +67,6 @@ char *pop_coda(Coda *q) {
         q->head = q->head->next;
         if (q->head == NULL) {
             q->tail = NULL;
-            //c->not_empty = NULL; //test
         }   
 
         q->len--;

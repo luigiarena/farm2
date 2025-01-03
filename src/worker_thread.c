@@ -95,30 +95,29 @@ void mask_signals_worker() {
 
 long calcola_res (char *path_file){
     FILE *fp;
-    // apertura il file in modalità "rb"
+    // Apre il file in modalità "rb"
     fp = fopen(path_file, "rb");
     if (fp == NULL) {
         printf("Errore nell'apertura del file %s\n", path_file);
-        //correggere il return
         return -1;
     }
-    // posizionamento alla fine del file
+    // Posizionamento alla fine del file
     fseek(fp, 0L, SEEK_END);
-    // ottenere posizione corrente (che è la dimensione del file)
+    // Ottiene posizione corrente (che è la dimensione del file)
     long size = ftell(fp);
     size = size / sizeof(long);
     long vals[size];
 
     fseek(fp, 0L, SEEK_SET);
-    // lettura dei valori dal file e inserimento nell'array
+    // Lettura dei valori dal file e inserimento nell'array
     int count = fread(vals, sizeof(long), size, fp);
     fclose(fp);
     if(count != size){
-        //non ho letto il numero corretto di elementi del file
+        // Non ha letto il numero corretto di elementi del file
         printf("Errore lettura long\n");
         exit(1);
     }
-    //se la lettura è andata a buon fine eseguo il calcolo di result
+    // Se la lettura è andata a buon fine esegue il calcolo di result
     long result = 0, i;
     for(i=0;i<count;i++){
         result+=(i*vals[i]);

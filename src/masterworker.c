@@ -26,8 +26,6 @@
 #include "coda.h"
 #include "utility.h"
 
-//#define SOCKET_PATH			"./farm2.sck"
-//#define BUF_MAX_SIZE                  255
 #define MAX_NCONN                      10
 
 extern int verbose;
@@ -50,17 +48,6 @@ void esplora_dir(Coda *q, long tdelay, char *dname);
 void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, long tdelay, char *dname) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
-    //pthread_t worker_pool[nthread];
-
-/*
-    // Gestore segnali per il MasterWorker
-    signal(SIGHUP, handler_signals);
-    //signal(SIGINT, handler_signals);
-    signal(SIGQUIT, handler_signals);
-    signal(SIGTERM, handler_signals);
-    signal(SIGUSR1, handler_signals);
-    signal(SIGUSR2, handler_signals);
-*/
 	// Gestisco segnali per MasterWorker
 	sigset_t mask;
 
@@ -121,90 +108,24 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, l
         //read(server_socket, buffer, BUF_MAX_SIZE);
         //printf("Master ha ricevuto: %s\n", buffer);
 
-        // Creo la coda concorrente
+        // Crea la coda concorrente
         coda_concorrente = create_coda(qlen);
-        /*
-        int test_push = push_coda(coda_concorrente, "Prova prova prova");
-        printf("Test push: %d\n", test_push);
-        printf("Test pop: %s\n", pop_coda(coda_concorrente));
-        */
 
+        // Crea la lista dei Worker
         Worker_list *lista_w;
         lista_w = malloc(sizeof(Worker_list));
         lista_w->count_w = 0;
         lista_w->head = NULL;
 
-        // Creo i worker thread
+        // Crea i worker thread
         for (int i = 0; i < nthread; i++) {
             add_worker(lista_w);
         }
 
+        // Riempie la coda con gli argomenti inseriti
         riempi_coda(coda_concorrente, file_list, file_num, tdelay, dname);
 
         stampa_coda(coda_concorrente);
-
-/*
-        // FACCIO COSE
-        //int index = 0;
-        //int max_ciclo = 30;
-        int ind_ciclo = 0;
-        //while(!stop_signal && ind_ciclo<=max_ciclo)
-        while(!stop_signal)
-        {
-            ind_ciclo++;
-            //printf("Sono dentro il ciclo di masterworker\n");
-            // RIVEDERE
-            
-            if (usr_counter > 0) {
-                add_worker(lista_w);
-                usr_counter--;
-            }
-            if (usr_counter < 0) {
-                // DA FINIRE
-                //del_worker();
-                usr_counter++;
-            }
-
-            if (!no_more_files && coda_concorrente.size < qlen) {
-                // Aggiungo prima i file inseriti come argomenti e
-                // poi quelli contenuti nella directory indicata
-            printf("Sono dentro il ciclo di aggiunta file in cc\n");
-            printf("Lunghezza coda: %d\n", coda_concorrente.size);
-                if (index < list_index) {
-                    push_file(&coda_concorrente, file_list[index]);
-                    index++;
-                } else {
-                    no_more_files = 1;
-                }                
-            }
-            
-
-            //printf("MasterWorker -> ciclo\n");
-            //sleep(1);
-        }
-*/
-        // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
-        // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
-        /*
-        for (; optind < argc; optind++) {      
-            printf("extra arguments: %s\n", argv[optind]);
-            push_file(&coda_concorrente, argv[optind]);  
-        }
-        */
-/*
-        int len = coda_concorrente.size;
-        printf("Coda size: %d\n", coda_concorrente.size);
-        Nodo *test = coda_concorrente.head;
-        while (test != NULL) {
-            printf("Iter file: %s\n", test->file_path);
-            test = test->next;
-        }
-*/
-        /*
-        for (int i=0; i<len; i++) {
-            printf("Verifica file: %s\n", pop_file(&coda_concorrente));
-        }
-        */
 
         V_PRINT_MSG(MASTERWORKER, "prima della join");
 
@@ -300,16 +221,13 @@ static void *handler_signals(void *arg) {
 void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dname) {
     int index = 0;
     FILE *new_file;
-    // Inserisco prima la lista dei file passati come argomenti
+    // Inserisce prima la lista dei file passati come argomenti
     while (index < file_num && !stop_signal) {
-        if (q->len == q->max) 
-        {
-            //printf("salto il ciclo di inserimento\n");
-            continue;
-        }
+        // Aspetta la coda non ha di nuovo spazio
+        if (q->len == q->max) continue;
         else {
-            // Devo fare controlli, devo bloccare la coda
-            new_file = fopen(file_list[index], "r");
+            // DEVO BLOCCARE LA CODA QUI
+            new_file = fopen(file_list[index], "rb");
             ec_val(new_file, NULL, "Errore apertura file");
             fclose(new_file);
             // Attendo il ritardo tdelay
@@ -337,6 +255,7 @@ void esplora_dir(Coda *q, long tdelay, char *dname) {
     }
 
     while (!stop_signal && (entry = readdir(dir)) != NULL) {
+        // Aspetta finché non arriva il segnale di stop o la coda non ha di nuovo spazio
         while (!stop_signal && q->len == q->max) continue;
 
         char full_path[PATH_MAX_LEN];
@@ -358,11 +277,9 @@ void esplora_dir(Coda *q, long tdelay, char *dname) {
 
         if (S_ISDIR(file_stat.st_mode)) {
             // Se è una directory la esplora ricorsivamente
-            //--printf("Directory: %s\n", full_path);
             esplora_dir(q, tdelay, full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
             // Se è un file regolare lo aggiungo alla coda concorrente
-            //printf("File regolare: %s\n", full_path);
             // Attendo il ritardo tdelay
             sleepTime(tdelay);
             push_coda(q, full_path);
@@ -374,47 +291,7 @@ void esplora_dir(Coda *q, long tdelay, char *dname) {
 
     closedir(dir);
 }
-/*
-int push_file(Coda *c, char *path) {
-    Nodo *n = malloc(sizeof(Nodo));
 
-    n->file_path = malloc(BUF_MAX_SIZE);
-    strncpy(n->file_path, path, strlen(path));
-    n->file_path[strlen(path)+1] = '\0';
-    n->next = NULL;
-
-    if (c->head == NULL) 
-        c->head = n;
-    else if (c->tail == NULL) 
-        c->head->next = c->tail = n;
-    else { 
-        c->tail->next = n;
-        c->tail = c->tail->next;
-    }
-
-    return c->size++;
-}
-
-char *pop_file(Coda *c) {
-    char* path = malloc(BUF_MAX_SIZE);
-
-    if (c->head == NULL) return NULL;
-    else {
-        strncpy(path, c->head->file_path, strlen(c->head->file_path));
-        path[strlen(c->head->file_path)+1] = '\0';
-
-        c->head = c->head->next;
-        if (c->head == NULL) {
-            c->tail = NULL;
-            //c->not_empty = NULL; //test
-        }   
-
-        c->size--;
-    }
-
-    return path;
-}
-*/
 void add_worker(Worker_list *l) {
     Worker_node *w;
     Worker_node *temp;
