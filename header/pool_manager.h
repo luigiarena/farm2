@@ -6,13 +6,16 @@
     Descrizione: 
 */
 
+#include <utility.h>
+
 typedef struct nodo {
     char *file_path;
     struct nodo *next;
 } Nodo;
 
 typedef struct coda {
-    int size;
+    int len;
+    int max;
     Nodo *head;
     Nodo *tail;
     pthread_mutex_t lock;
@@ -20,10 +23,7 @@ typedef struct coda {
     pthread_cond_t not_empty;
 } Coda;
 
-Coda crea_coda();
-void distruggi_coda();
-int push_file(Coda *c, char *path);
-char* pop_file(Coda *c);
-int push();
-int pop();
-
+Coda *create_coda(int qlen);
+void free_coda(Coda *q);
+int push_coda(Coda *q, char *path);
+char* pop_coda(Coda *q);

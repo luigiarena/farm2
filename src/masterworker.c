@@ -36,8 +36,8 @@ volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr_counter = 0;
 pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-Worker_list *lista_w;
-Coda coda_concorrente;
+//Worker_list *lista_w;
+Coda *coda_concorrente;
 int coda_piena = 0;
 int coda_vuota = 0;
 int no_more_files = 0;
@@ -47,7 +47,7 @@ pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
 static void *handler_signals(void *arg);
 
-void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname) {
+void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, char *dname) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
     //pthread_t worker_pool[nthread];
@@ -122,8 +122,12 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
         //printf("Master ha ricevuto: %s\n", buffer);
 
         // Creo la coda concorrente
-        coda_concorrente = crea_coda();
+        coda_concorrente = create_coda(qlen);
+        int test_push = push_coda(coda_concorrente, "Prova prova prova");
+        printf("Test push: %d\n", test_push);
+        printf("Test pop: %s\n", pop_coda(coda_concorrente));
 
+        Worker_list *lista_w;
         lista_w = malloc(sizeof(Worker_list));
         lista_w->count_w = 0;
         lista_w->head = NULL;
@@ -226,7 +230,9 @@ void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen,
 
         // Salvo su file il numero di thread worker attivi
         save_nworkers(lista_w, "nworkeratexit.txt");
-        free_lista(lista_w);
+
+        free_coda(coda_concorrente);
+        free_list(lista_w);
         V_PRINT_MSG(MASTERWORKER, "chiusura");
 
     return;
@@ -283,6 +289,12 @@ static void *handler_signals(void *arg) {
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
+void riempi_coda(char *file_list[], int file_num, int qlen) {
+    while (!stop_signal) {
+        
+    }
+    return;
+}
 void naviga_dir(const char *dname) {
     struct dirent *entry;
     struct stat file_stat;
@@ -322,7 +334,7 @@ void naviga_dir(const char *dname) {
 
     closedir(dir);
 }
-
+/*
 int push_file(Coda *c, char *path) {
     Nodo *n = malloc(sizeof(Nodo));
 
@@ -362,7 +374,7 @@ char *pop_file(Coda *c) {
 
     return path;
 }
-
+*/
 void add_worker(Worker_list *l) {
     Worker_node *w;
     Worker_node *temp;
@@ -385,7 +397,7 @@ void add_worker(Worker_list *l) {
     // w->tid = i;
 
     // Creo il nuovo worker thread
-    if (pthread_create(&w->tid, NULL, worker_thread, &coda_concorrente)) {
+    if (pthread_create(&w->tid, NULL, worker_thread, coda_concorrente)) {
         fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
         exit(EXIT_FAILURE);
     }
@@ -396,7 +408,7 @@ void rem_worker(Worker_list *l) {
 
 }
 
-void free_lista(Worker_list *l) {
+void free_list(Worker_list *l) {
     
     if (l == NULL) return;
     else {

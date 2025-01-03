@@ -47,6 +47,6 @@ void rem_worker(Worker_list *l);
 
 void save_nworkers(Worker_list *l, char *nworker_file);
 
-void free_lista(Worker_list *l);
+void free_list(Worker_list *l);
 
 void free_nodo(Worker_node *w);

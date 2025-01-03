@@ -18,4 +18,4 @@ typedef struct worker_data {
 
 //static void *handler_signals(void *arg);
 void explore_directory(const char *dname);
-void masterWorker_main(char *file_list[], int list_index, int nthread, int qlen, char *dname);
+void masterWorker_main(char *file_list[], int list_num, int nthread, int qlen, char *dname);

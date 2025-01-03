@@ -28,7 +28,7 @@ extern int verbose;
 extern int coda_vuota;
 extern int no_more_files;
 
-Worker_list *lista_w;
+//Worker_list *lista_w;
 extern Coda coda_concorrente;
 
 // Funzione eseguita da ogni worker thread
