@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "pool_manager.h"
+#include "coda.h"
 
 Coda *create_coda(int qlen) {
     Coda *q = malloc(sizeof(Coda));

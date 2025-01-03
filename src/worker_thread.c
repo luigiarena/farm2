@@ -16,7 +16,7 @@
 #include <signal.h>
 
 #include "worker_thread.h"
-#include "pool_manager.h"
+#include "coda.h"
 #include "utility.h"
 
 extern volatile sig_atomic_t stop_signal;

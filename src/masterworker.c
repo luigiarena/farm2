@@ -23,7 +23,7 @@
 
 #include "masterworker.h"
 #include "worker_thread.h"
-#include "pool_manager.h"
+#include "coda.h"
 #include "utility.h"
 
 //#define SOCKET_PATH			"./farm2.sck"
