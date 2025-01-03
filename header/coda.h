@@ -27,3 +27,4 @@ Coda *create_coda(int qlen);
 void free_coda(Coda *q);
 int push_coda(Coda *q, char *path);
 char* pop_coda(Coda *q);
+void stampa_coda(Coda *q);

@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "coda.h"
 
@@ -73,4 +74,18 @@ char *pop_coda(Coda *q) {
     }
 
     return path;
+}
+
+// Funzione di test
+void stampa_coda(Coda *q) {
+    Nodo *iter = q->head;
+    int i = 0;
+    printf("Stampa contenuto della coda concorrente\n");
+    while (iter != NULL) {
+        printf("File %d: %s\n", i, iter->file_path);
+        i++;
+        iter = iter->next;
+    }
+
+    return;
 }
