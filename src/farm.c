@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
 	pid_t pid;
 	int nthread = NTHREAD_DEFAULT;		// numero di threads
 	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
-	int tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
+	long tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
 	char *dname = NULL;		            // path della directory da visitare
 
     // Analizza i parametri dati in input -n
@@ -82,7 +82,7 @@ int main(int argc, char *argv[]){
                 }
                 break;
             case 't':
-                tdelay = atoi(optarg);
+                tdelay = atol(optarg);
 	            if (tdelay < 0) {
                     fprintf(stderr, "Il tempo di delay deve essere un numero intero maggiore o uguale ad 0\n");
                     exit(EXIT_FAILURE);
@@ -101,16 +101,14 @@ int main(int argc, char *argv[]){
     V_PRINT_MSG(FARM, "apertura");
 
     // Se non esistono argomenti e -d non è settato chiudo
-    int num_file = 0;
 	if (optind >= argc && dname == NULL) {
 		fprintf(stderr, "Nessun argomento fornito al programma.\n");
         usage_help(argv[0]);
 		exit(EXIT_FAILURE);
-	} else {
-        // Altrimenti inizializzo un array dei file inseriti come argomenti
-        num_file = argc-optind;
-        if (dname != NULL) num_file++;
-    }
+	}
+    
+    // Altrimenti inizializzo un array dei file inseriti come argomenti
+    int num_file = argc-optind;
 
     char *file_list[num_file];
     int index;
@@ -124,7 +122,7 @@ int main(int argc, char *argv[]){
     }
 
     // TEST
-    if (dname != NULL) strncpy(file_list[index], dname, PATH_MAX_LEN);
+    //if (dname != NULL) strncpy(file_list[index], dname, PATH_MAX_LEN);
     // TEST
     printf("Numero di argomenti: %d\n", num_file);
 
@@ -154,7 +152,7 @@ int main(int argc, char *argv[]){
 		sleep(1); // Attendo che collector abbia avviato la connessione
 
         V_PRINT_MSG(FARM,"avvio processo main di masterworker");
-		masterWorker_main(file_list, num_file, nthread, qlen, dname);
+		masterWorker_main(file_list, num_file, nthread, qlen, tdelay, dname);
 
         V_PRINT_MSG(MASTERWORKER,"attendo chiusura di collector");
 		wait(NULL); // Attendo la chiusura di Collector

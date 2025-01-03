@@ -26,4 +26,4 @@ void printlist();
 void mask_signals_collector();
 int add_res(long sum, char *path);
 void free_res(result_t *res);
-void collector_main(int tdelay);
+void collector_main(long tdelay);

@@ -38,16 +38,16 @@ pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //Worker_list *lista_w;
 Coda *coda_concorrente;
-int coda_piena = 0;
-int coda_vuota = 0;
 int no_more_files = 0;
 
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
 static void *handler_signals(void *arg);
+void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dname);
+void esplora_dir(Coda *q, long tdelay, char *dname);
 
-void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, char *dname) {
+void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, long tdelay, char *dname) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
     //pthread_t worker_pool[nthread];
@@ -123,9 +123,11 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, c
 
         // Creo la coda concorrente
         coda_concorrente = create_coda(qlen);
+        /*
         int test_push = push_coda(coda_concorrente, "Prova prova prova");
         printf("Test push: %d\n", test_push);
         printf("Test pop: %s\n", pop_coda(coda_concorrente));
+        */
 
         Worker_list *lista_w;
         lista_w = malloc(sizeof(Worker_list));
@@ -137,6 +139,11 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, c
             add_worker(lista_w);
         }
 
+        riempi_coda(coda_concorrente, file_list, file_num, tdelay, dname);
+
+        stampa_coda(coda_concorrente);
+
+/*
         // FACCIO COSE
         //int index = 0;
         //int max_ciclo = 30;
@@ -147,7 +154,7 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, c
             ind_ciclo++;
             //printf("Sono dentro il ciclo di masterworker\n");
             // RIVEDERE
-            /*
+            
             if (usr_counter > 0) {
                 add_worker(lista_w);
                 usr_counter--;
@@ -170,12 +177,12 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, c
                     no_more_files = 1;
                 }                
             }
-            **/
+            
 
             //printf("MasterWorker -> ciclo\n");
             //sleep(1);
         }
-
+*/
         // Uso optind per gestire tutti gli argomenti che non sono stati riconosciuti come parametri
         // Qui riempio la coda concorrente, se il file è regolare lo inserisco altrimenti lo ignoro
         /*
@@ -208,7 +215,7 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, c
         iterator = lista_w->head;
         for (int i = 0; (i < lista_w->count_w) && (iterator!=NULL); i++) {
             if (pthread_join(iterator->tid, NULL)) {
-                printf("Workerd %ld chiuso\n", (lista_w->head+i)->tid);
+                printf("Worker %ld chiuso\n", (lista_w->head+i)->tid);
                 fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", i);
                 exit(EXIT_FAILURE);
             }
@@ -258,7 +265,8 @@ static void *handler_signals(void *arg) {
                 break;
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
-                stop_signal = 1;
+                //stop_signal = 1;
+                pop_coda(coda_concorrente);
                 printf("usr_counter prima: %d\n", usr_counter);
                 pthread_mutex_lock(&usr_counter_mutex);
                 usr_counter++;
@@ -289,13 +297,36 @@ static void *handler_signals(void *arg) {
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
-void riempi_coda(char *file_list[], int file_num, int qlen) {
-    while (!stop_signal) {
-        
+void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dname) {
+    int index = 0;
+    FILE *new_file;
+    // Inserisco prima la lista dei file passati come argomenti
+    while (index < file_num && !stop_signal) {
+        if (q->len == q->max) 
+        {
+            //printf("salto il ciclo di inserimento\n");
+            continue;
+        }
+        else {
+            // Devo fare controlli, devo bloccare la coda
+            new_file = fopen(file_list[index], "r");
+            ec_val(new_file, NULL, "Errore apertura file");
+            fclose(new_file);
+            // Attendo il ritardo tdelay
+            sleepTime(tdelay);
+            push_coda(q, file_list[index]);
+            // TEST STAMPA CALCOLO
+            printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
+            index++;
+        }
     }
+    // Poi esploro la directory se è stata passata
+    if (dname != NULL) esplora_dir(q, tdelay, dname);
+
+    no_more_files = 1;
     return;
 }
-void naviga_dir(const char *dname) {
+void esplora_dir(Coda *q, long tdelay, char *dname) {
     struct dirent *entry;
     struct stat file_stat;
 
@@ -305,16 +336,19 @@ void naviga_dir(const char *dname) {
         return;
     }
 
-    while ((entry = readdir(dir)) != NULL) {
-        char full_path[1024];
+    while (!stop_signal && (entry = readdir(dir)) != NULL) {
+        while (!stop_signal && q->len == q->max) continue;
+
+        char full_path[PATH_MAX_LEN];
 
         // Salta "." e ".." e i file nascosti
-        if (entry->d_name[0] == '.') {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
         // Crea il path completo
-        snprintf(full_path, sizeof(full_path), "%s/%s", dname, entry->d_name);
+        int path_len = strlen(dname)+strlen(entry->d_name) + 2;
+        snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
 
         // Ottieni informazioni sul file
         if (stat(full_path, &file_stat) == -1) {
@@ -325,10 +359,16 @@ void naviga_dir(const char *dname) {
         if (S_ISDIR(file_stat.st_mode)) {
             // Se è una directory la esplora ricorsivamente
             //--printf("Directory: %s\n", full_path);
-            naviga_dir(full_path);
+            esplora_dir(q, tdelay, full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
             // Se è un file regolare lo aggiungo alla coda concorrente
-            printf("File regolare: %s\n", full_path);
+            //printf("File regolare: %s\n", full_path);
+            // Attendo il ritardo tdelay
+            sleepTime(tdelay);
+            push_coda(q, full_path);
+            // TEST STAMPA CALCOLO
+            printf("Test stampa full_path: %s\n", full_path);
+            printf("Test calcolo %s: %ld\n", full_path, calcola_res(full_path));
         }
     }
 

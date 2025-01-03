@@ -38,7 +38,7 @@ result_t *result_list = NULL;
 
 static void *printerThread (void *arg);
 
-void collector_main(int tdelay) {
+void collector_main(long tdelay) {
 
     char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
