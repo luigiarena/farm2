@@ -24,6 +24,7 @@
 #include "masterworker.h"
 #include "worker_thread.h"
 #include "coda.h"
+#include "pool_manager.h"
 #include "utility.h"
 
 #define MAX_NCONN                      10
@@ -32,6 +33,7 @@ extern int verbose;
 
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr_counter = 0;
+
 pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //Worker_list *lista_w;
@@ -121,6 +123,13 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, l
         for (int i = 0; i < nthread; i++) {
             add_worker(lista_w);
         }
+
+        // Avvia il thread che si occupererà della gestione del pool
+        pthread_t poolManagerId;
+        if (pthread_create(&poolManagerId, NULL, poolManager, NULL) != 0) {
+            perror("Masterworker -> errore durante la creazione di pool manager");
+            exit(EXIT_FAILURE);
+        } else V_PRINT_MSG(MASTERWORKER, "pool manager avviato");
 
         // Riempie la coda con gli argomenti inseriti
         riempi_coda(coda_concorrente, file_list, file_num, tdelay, dname);
@@ -232,7 +241,9 @@ void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dn
             fclose(new_file);
             // Attendo il ritardo tdelay
             sleepTime(tdelay);
+            pthread_mutex_lock(&q->lock);
             push_coda(q, file_list[index]);
+            pthread_mutex_unlock(&q->lock);
             // TEST STAMPA CALCOLO
             printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
             index++;
@@ -282,7 +293,9 @@ void esplora_dir(Coda *q, long tdelay, char *dname) {
             // Se è un file regolare lo aggiungo alla coda concorrente
             // Attendo il ritardo tdelay
             sleepTime(tdelay);
+            pthread_mutex_lock(&q->lock);
             push_coda(q, full_path);
+            pthread_mutex_unlock(&q->lock);
             // TEST STAMPA CALCOLO
             printf("Test stampa full_path: %s\n", full_path);
             printf("Test calcolo %s: %ld\n", full_path, calcola_res(full_path));
