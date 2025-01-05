@@ -6,7 +6,7 @@
     Descrizione: 
 */
 
-#define _POSIX_C_SOURCE 1
+//#define _POSIX_C_SOURCE 1
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,7 +70,7 @@ void* worker_thread(void* arg) {
 
     V_PRINT_ARG(WORKER, "(%d) termina", id);
     
-    return NULL;
+    pthread_exit(NULL);
 }
 
 void mask_signals_worker() {

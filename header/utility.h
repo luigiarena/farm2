@@ -7,6 +7,9 @@
 */
 
 //#define _POSIX_C_SOURCE 1
+#ifndef _POSIX_C_SOURCE 
+#define _POSIX_C_SOURCE 199506L
+#endif
 
 // Colori per shell
 #define ANSI_COLOR_GREY     "\x1b[30;1m"

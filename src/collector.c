@@ -239,5 +239,5 @@ static void *printerThread (void *arg) {
         }
         sleepTime(1000);
     }
-    return NULL;
+    pthread_exit(NULL);
 }
