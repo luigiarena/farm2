@@ -6,6 +6,25 @@
     Descrizione: 
 */
 
+typedef struct {
+    pthread_mutex_t mtx;
+    pthread_cond_t full;
+    pthread_cond_t empty;
+    int size;
+    int counter;
+    int reader;
+    int writer;
+    int tot;
+    char *task[];
+} coda_t;
+
+coda_t *init_coda(int size);
+void scrivi_coda(coda_t *c, char *path);
+char *leggi_coda(coda_t *c);
+int printf_coda(coda_t *c);
+
+//----------------------------------------------
+
 #include <utility.h>
 
 typedef struct nodo {
