@@ -6,12 +6,12 @@
     Descrizione: 
 */
 
-//#define _POSIX_C_SOURCE 1
-
+#define _POSIX_C_SOURCE 199309L
+/*
 #ifndef _POSIX_C_SOURCE 
 #define _POSIX_C_SOURCE 199309L
 #endif
-
+*/
 
 // Colori per shell
 #define ANSI_COLOR_GREY     "\x1b[30;1m"
