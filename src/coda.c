@@ -2,7 +2,7 @@
     PROGETTO FARM2
     Autore: Luigi Arena matricola 422353
 
-    File: pool_manager.c
+    File: coda.c
     Descrizione: 
 */
 

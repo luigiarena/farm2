@@ -1,4 +1,12 @@
-#define _POSIX_C_SOURCE 199309L
+/*
+    PROGETTO FARM2
+    Autore: Luigi Arena matricola 422353
+
+    File: utility.c
+    Descrizione: 
+*/
+
+#define _POSIX_C_SOURCE 200809L
 
 #include <time.h> 
 #include "utility.h"
