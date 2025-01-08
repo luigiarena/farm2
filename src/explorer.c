@@ -33,7 +33,13 @@ void *explorer (void *arg) {
     
     fill_coda(coda, data);
 
-    printf_coda(coda);
+    //printf_coda(coda);
+
+    printf("Esplorazione finita\n");
+
+    no_more_files = 1;
+    scrivi_coda(coda, "");
+    //printf_coda(coda);
     
     pthread_exit(NULL);
 }
@@ -45,7 +51,7 @@ void fill_coda(coda_t *coda, master_data_t *data) {
     FILE *new_file;
 
     // Inserisce prima la lista dei file passati come argomenti
-    while (index < data->num_file && !stop_signal) {
+    while (!stop_signal && index < data->num_file) {
         printf("Tentativo di inserimento file: %s\n", data->file_list[index]);
         new_file = fopen(data->file_list[index], "rb");
         //ec_val(new_file, NULL, "Errore apertura file");
@@ -63,10 +69,8 @@ void fill_coda(coda_t *coda, master_data_t *data) {
         index++;
     }
     // Poi esploro la directory se è stata passata
-    if (data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
+    if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
-    printf("Esplorazione finita\n");
-    no_more_files = 1;
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {

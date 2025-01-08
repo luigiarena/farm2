@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <pthread.h>
 
 #include "coda.h"
@@ -17,6 +18,8 @@
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t full = PTHREAD_COND_INITIALIZER;
 pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
+
+extern volatile sig_atomic_t no_more_files;
 
 coda_t *init_coda(int size) {
     coda_t *c = malloc(sizeof(coda_t)+(size*sizeof(char *)));
@@ -38,10 +41,11 @@ coda_t *init_coda(int size) {
 }
 
 void scrivi_coda(coda_t *c, char *path) {
-    printf("SCRIVI CODA cerca LOCK\n");
+    //printf("SCRIVI CODA cerca LOCK\n");
     pthread_mutex_lock(&c->mtx);
-    printf("SCRIVI CODA prende LOCK\n");
+    //printf("SCRIVI CODA prende LOCK\n");
     printf("Path ricevuto: %s\n", path);
+    //if (strcmp(path, "FINE") == 0) printf("NULOOOOOOOOOOOOOOOOOOOO\n");
     // Se la coda è piena aspetta che venga svuotata
     if (c->counter == c->size) pthread_cond_wait(&c->full, &c->mtx);
     strncpy(c->task[c->writer], path, PATH_MAX_LEN);
@@ -54,31 +58,33 @@ void scrivi_coda(coda_t *c, char *path) {
     // Risveglia i thread in attesa del riempimento della coda
     pthread_cond_signal(&c->empty);
     pthread_mutex_unlock(&c->mtx);
-    printf("SCRIVI CODA lascia LOCK\n");
+    //printf("SCRIVI CODA lascia LOCK\n");
 }
 
 char *leggi_coda(coda_t *c) {
     char *path = malloc(sizeof(char)*PATH_MAX_LEN);
-    printf("LEGGI CODA cerca LOCK\n");
+    //printf("LEGGI CODA cerca LOCK\n");
     pthread_mutex_lock(&c->mtx);
-    printf("LEGGI CODA prende LOCK\n");
+    //printf("LEGGI CODA prende LOCK\n");
     // Se la coda è vuota aspetta che venga riempita
     if (c->counter == 0) pthread_cond_wait(&c->empty, &c->mtx);
-    strncpy(path, c->task[c->reader], PATH_MAX_LEN);
-    //path = c->task[c->reader];
-    c->counter--;
-    c->reader++;
-    if (c->reader == c->size) c->reader = 0;
+        strncpy(path, c->task[c->reader], PATH_MAX_LEN);
+        //path = c->task[c->reader];
+        c->counter--;
+        c->reader++;
+        if (c->reader == c->size) c->reader = 0;
     //c->reader = (c->reader + 1) % c->size;
     // Risveglia i thread in attesa dello svuotamento della coda
     pthread_cond_signal(&c->full);
     pthread_mutex_unlock(&c->mtx);
-    printf("LEGGI CODA lascia LOCK\n");
+    //printf("LEGGI CODA lascia LOCK\n");
     return path;
 }
 
-int printf_coda(coda_t *c) {
+void printf_coda(coda_t *c) {
     printf("Stampa contenuto della coda concorrente\n");
+    pthread_mutex_lock(&c->mtx);
     for (int i=0; i<c->counter; i++) printf("File %d: %s\n", i+1, c->task[i]);
-    return c->tot;
+    pthread_mutex_lock(&c->mtx);
+    return;
 }

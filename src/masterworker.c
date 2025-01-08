@@ -14,16 +14,17 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include <dirent.h>
+//#include <dirent.h>
 #include <string.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/stat.h>
+//#include <sys/stat.h>
 //#include <sys/types.h>
 //#include <sys/wait.h>
 
 #include "masterworker.h"
+#include "explorer.h"
 #include "worker_thread.h"
 #include "coda.h"
 #include "pool_manager.h"
@@ -34,24 +35,25 @@
 extern int verbose;
 
 volatile sig_atomic_t stop_signal = 0;
+volatile sig_atomic_t usr1_signal = 0;
+volatile sig_atomic_t usr2_signal = 0;
 volatile sig_atomic_t usr_counter = 0;
+volatile sig_atomic_t no_more_files = 0;
 
 pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-//Worker_list *lista_w;
-//Coda *coda_concorrente;
-volatile sig_atomic_t no_more_files = 0;
 
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 
-static void *handler_signals(void *arg);
-void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dname);
-void esplora_dir(Coda *q, long tdelay, char *dname);
-void fill_coda(coda_t *c, char *file_list[], int file_num, long tdelay, char *dname);
-void explore_dir(coda_t *c, long tdelay, char *dname);
+coda_t *coda;
 
-void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, long tdelay, char *dname) {
+static void *handler_signals(void *arg);
+void save_nworkers(int n, char *file);
+
+//void fill_coda(coda_t *c, char *file_list[], int file_num, long tdelay, char *dname);
+//void explore_dir(coda_t *c, long tdelay, char *dname);
+
+void masterWorker_main(master_data_t *data) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
 	// Gestisco segnali per MasterWorker
@@ -93,93 +95,81 @@ void masterWorker_main(char *file_list[], int file_num, int nthread, int qlen, l
         exit(EXIT_FAILURE);
     }
 
-        // Configurazione socket
-        sa.sun_family = AF_UNIX;
-        strcpy(sa.sun_path, SOCKET_PATH);
+    // Configurazione socket
+    sa.sun_family = AF_UNIX;
+    strcpy(sa.sun_path, SOCKET_PATH);
 
-        int tentativi=0;
-        V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
-        // Connessione al server (collector)
-        while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&sa, sizeof(sa)) == -1)) {
-            perror("MasterWorker error -> connessione fallita");
-            close(server_socket);
-            exit(EXIT_FAILURE);
-            tentativi++;
-            sleep(1);
-        }
-
-        V_PRINT_MSG(MASTERWORKER, "connessione con Collector stabilita!")
-
-        // Attesa messaggio di conferma dal collector
-        //read(server_socket, buffer, BUF_MAX_SIZE);
-        //printf("Master ha ricevuto: %s\n", buffer);
-
-        // Crea la coda concorrente
-        //coda_concorrente = create_coda(qlen);
-        coda_t *cc = init_coda(qlen);
-
-        // Crea la lista dei Worker
-        Worker_list *lista_w;
-        lista_w = malloc(sizeof(Worker_list));
-        lista_w->count_w = 0;
-        lista_w->head = NULL;
-
-        // Crea i worker thread
-        for (int i = 0; i < nthread; i++) {
-            add_worker(lista_w);
-            printf("Numero di worker attivi: %d\n", lista_w->count_w);
-        }
-
-        // Avvia il thread che si occupererà della gestione del pool
-        pthread_t poolManagerId;
-        if (pthread_create(&poolManagerId, NULL, poolManager, NULL) != 0) {
-            perror("Masterworker -> errore durante la creazione di pool manager");
-            exit(EXIT_FAILURE);
-        } else V_PRINT_MSG(MASTERWORKER, "pool manager avviato");
-
-        // Riempie la coda con gli argomenti inseriti
-        //riempi_coda(coda_concorrente, file_list, file_num, tdelay, dname);
-        fill_coda(cc, file_list, file_num, tdelay, dname);
-        //stampa_coda(coda_concorrente);
-        printf_coda(cc);
-
-        V_PRINT_MSG(MASTERWORKER, "prima della join");
-
-        // Aspetto la fine della coda concorrente
-
-/*
-        Worker_node *iterator = NULL;
-        // Attendo la terminazione dei worker
-        iterator = lista_w->head;
-        for (int i = 0; (i < lista_w->count_w) && (iterator!=NULL); i++) {
-            if (pthread_join(iterator->tid, NULL)) {
-                fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", i);
-                exit(EXIT_FAILURE);
-            }
-            printf("Worker %ld chiuso\n", (lista_w->head+i)->tid);
-            iterator = iterator->next;
-        }
-        free(iterator);
-*/
-        V_PRINT_MSG(MASTERWORKER, "dopo della join");
-
-        // Invio messaggio "STOP"
-        send(server_socket, "STOP", strlen("STOP"), 0);
-        memset(buffer, 0, BUF_MAX_SIZE);
-        read(server_socket, buffer, BUF_MAX_SIZE);
-        V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
-
-        // Chiusura connessione e cancellazione del socket
+    V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
+    // Connessione al server (collector)
+    int tentativi=0;
+    while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&sa, sizeof(sa)) == -1)) {
+        perror("MasterWorker error -> connessione fallita");
         close(server_socket);
-        unlink(SOCKET_PATH);
+        exit(EXIT_FAILURE);
+        tentativi++;
+        sleep(1);
+    }
 
-        // Salvo su file il numero di thread worker attivi
-        printf("Numero di worker attivi: %d\n", lista_w->count_w);
-        //save_nworkers(lista_w, "nworkeratexit.txt");
+    V_PRINT_MSG(MASTERWORKER, "connessione con Collector stabilita!")
 
-        //free_coda(coda_concorrente);
-        //free_list(lista_w);
-        V_PRINT_MSG(MASTERWORKER, "chiusura");
+    // Crea la coda concorrente
+    coda = init_coda(data->qlen);
+    printf("Coda init\n");
+
+    // Crea il pool dei Worker
+    pool_t *pool = init_pool(data->nthread);
+    printf("Pool init\n");
+
+    // Avvia il thread che si occupererà di riempire la coda
+
+    pthread_t explorer_tid;
+    if (pthread_create(&explorer_tid, NULL, explorer, data) != 0) {
+        perror("Masterworker -> errore durante la creazione di explorer");
+        exit(EXIT_FAILURE);
+    } else V_PRINT_MSG(MASTERWORKER, "pool manager avviato");
+    V_PRINT_ARG(MASTERWORKER, "avviato pool manager: %ld\n", explorer_tid);
+
+    //printf("Counter della coda: %d\n", coda->counter);
+    /*
+    while(!stop_signal) {
+        printf("Masterworker aspetta fine\n");
+        if (coda->counter == 0 && no_more_files) stop_signal = 1;
+        //else printf("Letto: %s\n", leggi_coda(coda));
+        sleepTime(500);
+    }
+    */
+    printf("Test add_worker su pool\n");
+    int active_workes = pool_manager(pool);
+
+    V_PRINT_MSG(MASTERWORKER, "prima della join");
+        
+    // Aspetto la fine della coda concorrente
+
+    // Attende la chiusura di Explorer
+    printf("Masterworker cerca di joinare explorer: %ld\n", explorer_tid);
+    if (pthread_join(explorer_tid, NULL)) {
+        fprintf(stderr, "MasterWorker -> errore join explorer\n");
+        exit(EXIT_FAILURE);
+    }
+
+    V_PRINT_MSG(MASTERWORKER, "dopo della join");
+
+    // Invio messaggio "STOP"
+    send(server_socket, "STOP", strlen("STOP"), 0);
+    memset(buffer, 0, BUF_MAX_SIZE);
+    read(server_socket, buffer, BUF_MAX_SIZE);
+    V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
+
+    // Chiusura connessione e cancellazione del socket
+    close(server_socket);
+    unlink(SOCKET_PATH);
+
+    // Salvo su file il numero di thread worker attivi
+    printf("Numero di worker attivi: %d\n", pool->nthread);
+    printf("Numero di active_workers: %d\n", active_workes);
+    save_nworkers(active_workes, "nworkeratexit.txt");
+
+    V_PRINT_MSG(MASTERWORKER, "chiusura");
 
     return;
 }
@@ -205,7 +195,6 @@ static void *handler_signals(void *arg) {
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
                 //stop_signal = 1;
-                //pop_coda(coda_concorrente);
                 printf("usr_counter prima: %d\n", usr_counter);
                 pthread_mutex_lock(&usr_counter_mutex);
                 usr_counter++;
@@ -235,12 +224,25 @@ static void *handler_signals(void *arg) {
     return NULL;
 }
 
+void save_nworkers(int n, char *file) {
+    printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", n);
+    FILE *fp = fopen(file, "w");
+    ec_val(fp, NULL, "Errore apertura file nworker");
+    fprintf(fp, "%d\n", n);
+    fclose(fp);
+
+    return;
+}
+
+/*
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 void fill_coda(coda_t *c, char *file_list[], int file_num, long tdelay, char *dname) {
+    printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
     // Inserisce prima la lista dei file passati come argomenti
     while (index < file_num && !stop_signal) {
+        printf("Tentativo di inserimento file: %s\n", file_list[index]);
         new_file = fopen(file_list[index], "rb");
         ec_val(new_file, NULL, "Errore apertura file");
         if (new_file == NULL) {
@@ -253,12 +255,13 @@ void fill_coda(coda_t *c, char *file_list[], int file_num, long tdelay, char *dn
         sleepTime(tdelay);
         scrivi_coda(c, file_list[index]);
         // TEST STAMPA CALCOLO
-        printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
+        //printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
         index++;
     }
     // Poi esploro la directory se è stata passata
     if (dname != NULL) explore_dir(c, tdelay, dname);
 
+    printf("Esplorazione finita\n");
     no_more_files = 1;
     return;
 }
@@ -305,132 +308,4 @@ void explore_dir(coda_t *c, long tdelay, char *dname) {
 
     closedir(dir);
 }
-void riempi_coda(Coda *q, char *file_list[], int file_num, long tdelay, char *dname) {
-    int index = 0;
-    FILE *new_file;
-    // Inserisce prima la lista dei file passati come argomenti
-    while (index < file_num && !stop_signal) {
-        // Aspetta la coda non ha di nuovo spazio
-        if (q->len == q->max) continue;
-        else {
-            // DEVO BLOCCARE LA CODA QUI
-            new_file = fopen(file_list[index], "rb");
-            ec_val(new_file, NULL, "Errore apertura file");
-            fclose(new_file);
-            // Attendo il ritardo tdelay
-            sleepTime(tdelay);
-            pthread_mutex_lock(&q->lock);
-            push_coda(q, file_list[index]);
-            pthread_mutex_unlock(&q->lock);
-            // TEST STAMPA CALCOLO
-            printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
-            index++;
-        }
-    }
-    // Poi esploro la directory se è stata passata
-    if (dname != NULL) esplora_dir(q, tdelay, dname);
-
-    no_more_files = 1;
-    return;
-}
-void esplora_dir(Coda *q, long tdelay, char *dname) {
-    struct dirent *entry;
-    struct stat file_stat;
-
-    DIR *dir = opendir(dname);
-    if (!dir) {
-        perror("Errore nell'aprire la directory dei file di input");
-        return;
-    }
-
-    while (!stop_signal && (entry = readdir(dir)) != NULL) {
-        // Aspetta finché non arriva il segnale di stop o la coda non ha di nuovo spazio
-        while (!stop_signal && q->len == q->max) continue;
-
-        char full_path[PATH_MAX_LEN];
-
-        // Salta "." e ".." e i file nascosti
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-
-        // Crea il path completo
-        int path_len = strlen(dname)+strlen(entry->d_name) + 2;
-        snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
-
-        // Ottieni informazioni sul file
-        if (stat(full_path, &file_stat) == -1) {
-            perror("Errore nell'ottenere informazioni sul file");
-            continue;
-        }
-
-        if (S_ISDIR(file_stat.st_mode)) {
-            // Se è una directory la esplora ricorsivamente
-            esplora_dir(q, tdelay, full_path);
-        } else if (S_ISREG(file_stat.st_mode)) {
-            // Se è un file regolare lo aggiungo alla coda concorrente
-            // Attendo il ritardo tdelay
-            sleepTime(tdelay);
-            pthread_mutex_lock(&q->lock);
-            push_coda(q, full_path);
-            pthread_mutex_unlock(&q->lock);
-            // TEST STAMPA CALCOLO
-            printf("Test stampa full_path: %s\n", full_path);
-            printf("Test calcolo %s: %ld\n", full_path, calcola_res(full_path));
-        }
-    }
-
-    closedir(dir);
-}
-
-void add_worker(Worker_list *l) {
-    Worker_node *w;
-    Worker_node *temp;
-    int i = l->count_w + 1;
-
-    if ( (w = malloc(sizeof(Worker_node))) == NULL ) {
-        fprintf(stderr, "MasterWorker error -> errore allocazione worker %d\n", i);
-        exit(EXIT_FAILURE);
-    } else {
-        w->next = NULL;
-        temp = l->head;
-        if (temp == NULL) {
-            temp = w;
-        } else {
-            while (temp->next != NULL) temp = temp->next;
-            temp->next = w;
-        }
-    }
-    l->count_w = i;
-    // w->tid = i;
-
-    // Creo il nuovo worker thread
-    if (pthread_create(&w->tid, NULL, worker_thread, NULL)) {
-        fprintf(stderr, "MasterWorker error -> errore creazione worker %d\n", i);
-        exit(EXIT_FAILURE);
-    }
-
-}
-
-void rem_worker(Worker_list *l) {
-
-}
-
-void free_list(Worker_list *l) {
-    if (l == NULL) return;
-    else {
-        free_nodo(l->head);
-        free(l);
-        return;
-    }
-}
-
-void free_nodo(Worker_node *w) {
-    if (w == NULL) return;
-    else {
-        free_nodo(w->next);
-        free(w);
-        return;
-    }
-
-}
+*/

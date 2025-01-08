@@ -17,6 +17,7 @@
 
 #include "worker_thread.h"
 #include "coda.h"
+#include "pool_manager.h"
 #include "utility.h"
 
 extern volatile sig_atomic_t stop_signal;
@@ -25,50 +26,49 @@ extern volatile sig_atomic_t usr2_signal;
 
 extern int verbose;
 
-extern int coda_vuota;
-extern int no_more_files;
+extern coda_t *coda;
 
-//Worker_list *lista_w;
-extern Coda coda_concorrente;
+//extern int no_more_files;
+int trova_id(pool_t *p, pthread_t tid);
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
     mask_signals_worker();
 
-    //Coda *cc = (Coda *) arg;
+    pthread_t tid = pthread_self();
+    //int id = 0;
+    //int id = trova_id(p, tid);
+    //ec_val(id, 0, "Errore recupero id worker");
 
-    int id = pthread_self();
-    //int id = lista_w->count_w;
-
-    while (!stop_signal && !no_more_files) {
-        V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
-/*
-        pthread_mutex_lock(&cc->lock);
-        if (&cc->not_empty && no_more_files) {
-            pthread_mutex_unlock(&cc->lock);
+    V_PRINT_ARG(WORKER, "(%ld) avviato", tid);
+      //sleepTime(500);
+    char *path = malloc(PATH_MAX_LEN);
+    while (!stop_signal) {
+        //V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
+        //leggi_coda(p->coda);
+        // AGGIUNGI CONTROLLO PER USR2
+        //sleep(1);
+        printf("Worker %ld cerca di leggere coda\n", tid);
+        //leggi_coda(coda);
+        //if (coda->counter != 0) path = leggi_coda(coda);
+        path = leggi_coda(coda);
+        if (strcmp(path, "") == 0) {
+            //printf("PATH NULLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
+            scrivi_coda(coda, "");
             break;
         }
-*/
-        // AGGIUNGI CONTROLLO PER USR2
-
         /*
-        while (cc->size == 0) {
-            //pthread_cond_wait();
+        if (strcmp(path, "FINE")) {
+            printf("Worker %ld HA PRESO LA FINE!\n", tid);
+            scrivi_coda(coda, "FINE");
+            break;
         }
         */
-
-        /*
-        char *path_file = pop_file(cc);
-
-        pthread_cond_signal(&cc->not_full);
-        pthread_mutex_unlock(&cc->lock);
-
-        long result = calcola_res(path_file);
-        if (result == -1) return NULL;
-        */
+        printf("Letto------------------------->: %s\n", path);
+        //sleepTime(500);
     }
 
-    V_PRINT_ARG(WORKER, "(%d) termina", id);
+    V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
     
     pthread_exit(NULL);
 }
@@ -125,13 +125,16 @@ long calcola_res (char *path_file){
     return result;
 }
 
-// Salva il numero di worker su file
-void save_nworkers(Worker_list *l, char *name_file) {
-    printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", l->count_w);
-    FILE *fp = fopen(name_file, "w");
-    ec_val(fp, NULL, "Errore apertura file nworker");
-    fprintf(fp, "%d\n", l->count_w);
-    fclose(fp);
-
-    return;
+int trova_id(pool_t *p, pthread_t tid) {
+    worker_t *w = malloc(sizeof(worker_t));
+    int id = 0;
+    printf("TROVA_ID cerca LOCK\n");
+    pthread_mutex_lock(&p->mtx);
+    printf("TROVA_ID prende LOCK\n");
+/*    w = p->list;
+    while (w != NULL && w->tid != tid) w = w->next;
+*/    if (w != NULL) id = w->id;
+    pthread_mutex_unlock(&p->mtx);
+    printf("TROVA_ID rilascia LOCK\n");
+    return id;
 }

@@ -5,6 +5,8 @@
     File: masterworker.h
     Descrizione: 
 */
+#ifndef MASTERWORKER_H
+#define MASTERWORKER_H
 
 /*
 typedef struct worker_data {
@@ -16,6 +18,16 @@ typedef struct worker_data {
 } Worker_data;
 */
 
+typedef struct master_data {
+    int nthread;                // numero di threads
+    int qlen;                   // lunghezza della coda concorrente
+    long tdelay;                // tempo di ritardo nell'inserimento dei task
+    char *dname;                // path della directory da visitare
+    int num_file;               // numero di file inseriti come argomento
+    char **file_list;           // lista dei nomi dei file inseriti
+} master_data_t;
+
 //static void *handler_signals(void *arg);
-void explore_directory(const char *dname);
-void masterWorker_main(char *file_list[], int list_num, int nthread, int qlen, long tdelay, char *dname);
+void masterWorker_main(master_data_t *data);
+
+#endif

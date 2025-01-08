@@ -25,6 +25,6 @@ typedef struct {
 coda_t *init_coda(int size);
 void scrivi_coda(coda_t *c, char *path);
 char *leggi_coda(coda_t *c);
-int printf_coda(coda_t *c);
+void printf_coda(coda_t *c);
 
 #endif
