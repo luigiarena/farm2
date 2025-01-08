@@ -5,25 +5,14 @@
     File: collector.h
     Descrizione: 
 */
+#ifndef CODA_H
+#define CODA_H
 
-/*
-#define SOCKET_PATH			"./farm2.sck"
-#define BUF_MAX_SIZE                  255
-#define PATH_MAX_LEN                  255
-*/
+void collector_main();
 
-#include "utility.h"
-
-// Struttura necessaria alla creazione di una lista per i risultati ricevuti da Collector
-typedef struct result {
-	long sum;
-	char path[PATH_MAX_LEN];
-	struct result *next;
-} result_t;
-
-//void printlist(result_t *list);
-void printlist();
 void mask_signals_collector();
 int add_res(long sum, char *path);
-void free_res(result_t *res);
-void collector_main(long tdelay);
+void free_res();
+void printlist();
+
+#endif

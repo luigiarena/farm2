@@ -22,23 +22,27 @@
 #include <sys/wait.h>
 
 #include "collector.h"
-//#include "utility.h"
-/*
-#define SOCKET_PATH			"./farm2.sck"
-#define BUF_MAX_SIZE                  255
-*/
+#include "utility.h"
+
 pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 extern int verbose;
 
-static int control_collector;
-static int control_printer;
+static int stop_collector = 0;
+static int stop_printer = 0;
+
+// Struttura necessaria alla creazione di una lista per i risultati ricevuti da Collector
+typedef struct result {
+	long sum;
+	char path[PATH_MAX_LEN];
+	struct result *next;
+} result_t;
 
 result_t *result_list = NULL;
 
 static void *printerThread (void *arg);
 
-void collector_main(long tdelay) {
+void collector_main() {
 
     char buffer[BUF_MAX_SIZE];
     int server_socket, client_socket;
@@ -83,6 +87,7 @@ void collector_main(long tdelay) {
     result_list = NULL;
 
     // Inserzioni di TEST
+    /*
     add_res(2, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(3, "ciao ciao");
@@ -93,21 +98,19 @@ void collector_main(long tdelay) {
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
     add_res(4, "ciao ciao");
     V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
+    */
 
     // Avvia il thread printer per la stampa parziale dei risultati
-    control_printer = 1;
-
     pthread_t printerId;
     if (pthread_create(&printerId, NULL, printerThread, NULL) != 0) {
         perror("Collector -> errore durante la creazione di printer");
-        control_printer = 0;
-        control_collector = 0;
+        stop_printer = 1;
+        stop_collector = 1;
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "printer avviato");
 
     // Collector entra in un loop di ascolto
-    control_collector = 1;
-    while (control_collector) {
+    while (!stop_collector) {
         // Accetta connessioni
         client_socket = accept(server_socket, NULL, NULL);
         if (client_socket < 0) {
@@ -129,8 +132,9 @@ void collector_main(long tdelay) {
 
         if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client
-            control_collector = 0;
-            control_printer = 0;
+            stop_collector = 1;
+            stop_printer = 1;
+            // Devo fare join printer
             V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
             printlist();
             free_res(result_list);
@@ -185,7 +189,9 @@ void mask_signals_collector() {
 
 // Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
 int add_res(long sum, char *path) {
+    printf("ADD_RES cerca LOCK\n");
     pthread_mutex_lock(&result_mutex);
+    printf("ADD_RES prende LOCK\n");
     result_t *iter = result_list;
     result_t *new;
 
@@ -209,12 +215,13 @@ int add_res(long sum, char *path) {
         iter->next = new;
     }
     pthread_mutex_unlock(&result_mutex);
+    printf("ADD_RES rilascia LOCK\n");
     return 0;
 }
 
-void free_res(result_t *res) {
-    if(res->next != NULL) free_res(res->next);
-    free(res);
+void free_res() {
+    if(result_list->next != NULL) free_res(result_list->next);
+    free(result_list);
 }
 
 // Stampa lista dei risultati
@@ -230,12 +237,15 @@ void printlist() {
 }
 
 static void *printerThread (void *arg) {
-    while(control_printer) {
+    while(!stop_printer) {
         //printf("Test di stampa del printer %d\n", ++i);
         if(result_list != NULL) {
+            printf("printer cerca LOCK\n");
             pthread_mutex_lock(&result_mutex);
+            printf("printer prende LOCK\n");
             printlist();
             pthread_mutex_unlock(&result_mutex);
+            printf("printer rilascia LOCK\n");
         }
         sleepTime(1000);
     }
