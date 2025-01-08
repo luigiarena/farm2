@@ -12,11 +12,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <getopt.h>
 #include <dirent.h>
-
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 
 #include "utility.h"
