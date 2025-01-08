@@ -189,6 +189,9 @@ master_data_t *read_opt(int argc, char *argv[]) {
                         fprintf(stderr,"Nome directory troppo lungo (MAX 255 caratteri).\n");
                         exit(EXIT_FAILURE);
                     }
+                    // Elimina il carattere '/' alla fine del path se è stato inserito
+                    if(opt[strlen(opt)-1] == '/') opt[strlen(opt)-1] = '\0';
+                    
                     data->dname = malloc(PATH_MAX_LEN);
                     strncpy(data->dname, opt, strlen(opt));
                     DIR *dir = opendir(data->dname);
