@@ -221,7 +221,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
     index = 0;
 
     while (index < data->num_file) {
-        data->file_list[index] = malloc(PATH_MAX_LEN);
+        data->file_list[index] = malloc(sizeof(char)*PATH_MAX_LEN);
         strncpy(data->file_list[index], argv[file_temp[index]], PATH_MAX_LEN);
         index++;
     }
