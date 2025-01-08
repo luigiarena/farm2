@@ -31,7 +31,7 @@ extern int verbose;
 static int stop_collector = 0;
 static int stop_printer = 0;
 
-// Struttura necessaria alla creazione di una lista per i risultati ricevuti da Collector
+// Struttura contenente i risultati ricevuti da Collector
 typedef struct result {
 	long sum;
 	char path[PATH_MAX_LEN];
@@ -128,7 +128,8 @@ void collector_main() {
             //break;
         }
 
-        buffer[nread] = '\0';  // Assicura la terminazione della stringa
+        // Assicura la terminazione della stringa
+        buffer[nread] = '\0';  
 
         if (strcmp(buffer, "STOP") == 0) {
             // Invio la risposta al client

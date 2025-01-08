@@ -34,7 +34,7 @@ void usage_help(char *pname);
 // Funzione main del programma
 int main(int argc, char *argv[]){
 
-	// Dichiarazione e definizione di default delle variabili
+	// Variabili generali farm
 	pid_t pid;
     verbose = 0;
 
@@ -191,7 +191,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
                     }
                     // Elimina il carattere '/' alla fine del path se è stato inserito
                     if(opt[strlen(opt)-1] == '/') opt[strlen(opt)-1] = '\0';
-                    
+
                     data->dname = malloc(PATH_MAX_LEN);
                     strncpy(data->dname, opt, strlen(opt));
                     DIR *dir = opendir(data->dname);
@@ -207,7 +207,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
                     break;
             }
         } else {
-            if (fopen(opt, "r") == NULL) {
+            if (fopen(opt, "rb") == NULL) {
                 fprintf(stderr, "Argomento non valido: %s\n", opt);
                 exit(EXIT_FAILURE);
             } else {

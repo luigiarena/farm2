@@ -28,10 +28,10 @@ extern coda_t *coda;
 int pool_manager(pool_t *pool) {
     V_PRINT_MSG(MASTERWORKER, "pool manager partito\n");
 
-    // Creo i thread worker iniziali
+    // Crea i worker thread iniziali
     for (int i = 0; i < pool->nthread; i++) {
         add_worker(pool);
-        printf("Numero di worker attivi: %d\n", pool->counter);
+        //printf("Numero di worker attivi: %d\n", pool->counter);
     }
 
     // Pool manager va in loop aspettando le richieste di aggiuta worker e la terminazione
@@ -39,27 +39,22 @@ int pool_manager(pool_t *pool) {
         //sleepTime(500);
         //if (coda->counter != 0) printf("Letto: %s\n", leggi_coda(coda));
         //printf("Pool Manager aspetta fine\n");
-
         if (no_more_files) {
             printf("------------------------------------------------Ok sono dentro\n");
             stop_signal = 1;
             //scrivi_coda(coda, "-1");
-            //pthread_cond_broadcast(&coda->empty);
         }
-        //else printf("Letto: %s\n", leggi_coda(coda));
-        //sleepTime(500);
     }
 
-printf("POOL_MANAGER -> sono a metà\n");
-
+    // Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
     worker_t *temp = pool->list;
 
     int active_workers = 0;
     printf("Tentativo di join da parte di pool_manager con i worker\n");
     while (pool->list != NULL) {
-        printf("Entro nel ciclo di join di pool\n");
+        //printf("Entro nel ciclo di join di pool\n");
         //pthread_mutex_lock(&pool->mtx);
-        printf("Cerco di joinare il worker: %ld\n", pool->list->tid);
+        //printf("Cerco di joinare il worker: %ld\n", pool->list->tid);
         if (pthread_join(pool->list->tid, NULL)) {
             fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", pool->list->id);
             exit(EXIT_FAILURE);
@@ -71,10 +66,9 @@ printf("POOL_MANAGER -> sono a metà\n");
         //pthread_mutex_unlock(&pool->mtx);
         active_workers++;
     }
-    pool->nthread = active_workers;
 
     printf("POOL MANAGER STA PER TERMINARE\n");
-    //sleep(2);
+    
     return active_workers;
 }
 

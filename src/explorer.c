@@ -52,7 +52,7 @@ void fill_coda(coda_t *coda, master_data_t *data) {
 
     // Inserisce prima la lista dei file passati come argomenti
     while (!stop_signal && index < data->num_file) {
-        printf("Tentativo di inserimento file: %s\n", data->file_list[index]);
+        //printf("Tentativo di inserimento file: %s\n", data->file_list[index]);
         new_file = fopen(data->file_list[index], "rb");
         //ec_val(new_file, NULL, "Errore apertura file");
         if (new_file == NULL) {
@@ -61,20 +61,18 @@ void fill_coda(coda_t *coda, master_data_t *data) {
             continue;
         }
         fclose(new_file);
-        // Attendo il ritardo tdelay
+        // Attende il ritardo tdelay
         sleepTime(data->tdelay);
         scrivi_coda(coda, data->file_list[index]);
-        // TEST STAMPA CALCOLO
-        //printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
         index++;
     }
-    // Poi esploro la directory se è stata passata
+    // Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
-    printf("ESPLORA DIR: %s\n", dname);
+    //printf("ESPLORA DIR: %s\n", dname);
     struct dirent *entry;
     struct stat file_stat;
 
@@ -96,9 +94,9 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
         int path_len = strlen(dname)+strlen(entry->d_name) + 2;
         snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
 
-        printf("-> full path: %s\n", full_path);
+        //printf("-> full path: %s\n", full_path);
 
-        // Ottieni informazioni sul file
+        // Ottiene informazioni sul file
         if (stat(full_path, &file_stat) == -1) {
             fprintf(stderr, "Errore nell'ottenere informazioni sul file: %s\n", full_path);
             continue;
@@ -108,12 +106,9 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
             // Se è una directory la esplora ricorsivamente
             explore_dir(coda, tdelay, full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
-            // Se è un file regolare lo aggiungo alla coda concorrente
-            // Attendo il ritardo tdelay
+            // Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda concorrente
             sleepTime(tdelay);
             scrivi_coda(coda, full_path);
-            // TEST STAMPA CALCOLO
-            //printf("Test calcolo %s: %ld\n", full_path, calcola_res(full_path));
         }
     }
 

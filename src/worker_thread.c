@@ -48,7 +48,7 @@ void* worker_thread(void* arg) {
         //leggi_coda(p->coda);
         // AGGIUNGI CONTROLLO PER USR2
         //sleep(1);
-        printf("Worker %ld cerca di leggere coda\n", tid);
+        //printf("Worker %ld cerca di leggere coda\n", tid);
         //leggi_coda(coda);
         //if (coda->counter != 0) path = leggi_coda(coda);
         path = leggi_coda(coda);
@@ -64,7 +64,7 @@ void* worker_thread(void* arg) {
             break;
         }
         */
-        printf("Letto------------------------->: %s\n", path);
+        printf("Worker %ld legge------->: %s\n", tid, path);
         //sleepTime(500);
     }
 
@@ -86,7 +86,7 @@ void mask_signals_worker() {
     
     ec_not(pthread_sigmask(SIG_BLOCK, &set, NULL), 0, "Worker set sigmask");
 
-    // Ignoro SIGPIPE
+    // Ignora SIGPIPE
     struct sigaction saction;
     memset(&saction, 0, sizeof(saction));
     saction.sa_handler = SIG_IGN;
@@ -95,7 +95,7 @@ void mask_signals_worker() {
 
 long calcola_res (char *path_file){
     FILE *fp;
-    // Apre il file in modalità "rb"
+    // Apre il file
     fp = fopen(path_file, "rb");
     if (fp == NULL) {
         printf("Errore nell'apertura del file %s\n", path_file);
@@ -109,13 +109,13 @@ long calcola_res (char *path_file){
     long vals[size];
 
     fseek(fp, 0L, SEEK_SET);
-    // Lettura dei valori dal file e inserimento nell'array
+    // Legge i valori dal file e li inserisce nell'array
     int count = fread(vals, sizeof(long), size, fp);
     fclose(fp);
     if(count != size){
         // Non ha letto il numero corretto di elementi del file
-        printf("Errore lettura long\n");
-        exit(1);
+        printf("Errore lettura long nel file: %s\n", path_file);
+        exit(EXIT_FAILURE);
     }
     // Se la lettura è andata a buon fine esegue il calcolo di result
     long result = 0, i;
