@@ -17,9 +17,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
-//#include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
 
 #include "utility.h"
 #include "explorer.h"
@@ -32,44 +30,40 @@
 #define TDELAY_DEFAULT					0
 #define DNAME_PATHLEN				  255
 
-//#define len_verbose 20
-
 extern int verbose;
 
 master_data_t *read_opt(int argc, char *argv[]);
 void usage_help(char *pname);
 
-// Funzione main per che lancia MasterWorker e fa partire il programma
+// Funzione main del programma
 int main(int argc, char *argv[]){
 
 	// Dichiarazione e definizione di default delle variabili
 	pid_t pid;
-    /*
-	int nthread = NTHREAD_DEFAULT;		// numero di threads
-	int qlen = QLEN_DEFAULT;			// lunghezza della coda concorrente
-	long tdelay = TDELAY_DEFAULT;		// tempo di ritardo nell'inserimento dei task
-	char *dname = NULL;		            // path della directory da visitare
-    */
+    verbose = 0;
 
     // Analizza i parametri dati in input
-    verbose = 0;
     master_data_t * data = read_opt(argc, argv);
 
-    printf("TEST DI STAMPA MASTER DATA\n");
-    printf("nthread %d\n", data->nthread);
-    printf("qlen %d\n", data->qlen);
-    printf("tdelay %ld\n", data->tdelay);
-    printf("dname %s\n", data->dname);
-    printf("num_file %d\n", data->num_file);
-    printf("file_list:\n");
-    for(int i=0; i<data->num_file; i++) {
-        printf("  file %d %s\n", i+1, data->file_list[i]);
+    // Da stampare solo con verbose
+    //if (verbose) {
+    if (1) {
+        printf("MASTER DATA\n");
+        printf("  nthread: %d\n", data->nthread);
+        printf("     qlen: %d\n", data->qlen);
+        printf("   tdelay: %ld\n", data->tdelay);
+        printf("    dname: %s\n", data->dname);
+        printf(" num_file: %d\n", data->num_file);
+        printf("file_list:\n");
+        for(int i=0; i<data->num_file; i++) {
+            printf("  file %d %s\n", i+1, data->file_list[i]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     // Se non esistono argomenti e -d non è settato chiude
 	if (data->num_file < 1 && data->dname == NULL) {
-		fprintf(stderr, "Nessun argomento fornito al programma.\n");
+		fprintf(stderr, "nessun argomento fornito al programma.\n");
         usage_help(argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -77,29 +71,30 @@ int main(int argc, char *argv[]){
     V_PRINT_MSG(FARM, "apertura");
 
 	// Creazione del processo figlio
-    V_PRINT_MSG(FARM, "creo processo collector");
+    V_PRINT_MSG(FARM, "crea processo collector");
 	pid = fork();
 	if (pid < 0) {
-		perror("Errore nella creazione del secondo processo\n");
+		perror("errore nella creazione del secondo processo\n");
 		exit(EXIT_FAILURE);
 	}
 
 	if(pid == 0) {
-		// figlio: Collector
+		// Figlio: Collector
 
-        V_PRINT_MSG(COLLECTOR, "avvio funzione main");
+        V_PRINT_MSG(COLLECTOR, "avvia funzione main");
         // Correggere dati di input
 		collector_main(data->tdelay);
 	} else {
-		// padre: MasterWorker
+		// Padre: MasterWorker
 
-        // Attendo che collector abbia avviato la connessione
-		sleep(1);
+        // Attende che collector abbia avviato la connessione
+		sleepTime(1000);
 
-        V_PRINT_MSG(FARM,"avvio processo main di masterworker");
+        V_PRINT_MSG(FARM,"avvia processo main di masterworker");
 		masterWorker_main(data);
 
-        V_PRINT_MSG(MASTERWORKER,"attendo chiusura di collector");
+        V_PRINT_MSG(MASTERWORKER,"attende chiusura di collector");
+
         // Attendo la chiusura di Collector
 		wait(NULL);
 
@@ -114,6 +109,7 @@ void usage_help(char* pname) {
     fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", pname);
 }
 
+// Riceve i dati di input e costruisce la struttura necessaria al funzionamento di masterworker
 master_data_t *read_opt(int argc, char *argv[]) {
     master_data_t *data = malloc(sizeof(master_data_t));
     ec_val(data, NULL, "Errore malloc master_data");
@@ -129,6 +125,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
     int file_temp[argc];
     int index_temp = 0;
 
+    // Ciclo di analisi dei dati di input (argv[])
     int index = 1;
     char *opt;
     while (index < argc) {
@@ -223,7 +220,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
         index++;
     }
 
-    // Inizializzo la lista dei file passati come argomenti
+    // Inizializza la lista dei file passati come argomenti
     data->file_list = malloc(sizeof(char *)*data->num_file);
     index = 0;
 
