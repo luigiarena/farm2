@@ -24,14 +24,14 @@ extern volatile sig_atomic_t no_more_files;
 
 extern coda_t *coda;
 
-void fill_coda(coda_t *coda, char **file_list, int num_file, long tdelay, char *dname);
+void fill_coda(coda_t *coda, master_data_t *data);
 void explore_dir(coda_t *coda, long tdelay, char *dname);
 
 void *explorer (void *arg) {
 
     master_data_t *data = (master_data_t *) arg;
     
-    fill_coda(coda, data->file_list, data->num_file, data->tdelay, data->dname);
+    fill_coda(coda, data);
 
     printf_coda(coda);
     
@@ -39,36 +39,38 @@ void *explorer (void *arg) {
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
-void fill_coda(coda_t *coda, char **file_list, int file_num, long tdelay, char *dname) {
+void fill_coda(coda_t *coda, master_data_t *data) {
     printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
+
     // Inserisce prima la lista dei file passati come argomenti
-    while (index < file_num && !stop_signal) {
-        printf("Tentativo di inserimento file: %s\n", file_list[index]);
-        new_file = fopen(file_list[index], "rb");
+    while (index < data->num_file && !stop_signal) {
+        printf("Tentativo di inserimento file: %s\n", data->file_list[index]);
+        new_file = fopen(data->file_list[index], "rb");
         //ec_val(new_file, NULL, "Errore apertura file");
         if (new_file == NULL) {
-            fprintf(stderr, "Errore apertura file: %s\n", file_list[index]);
+            fprintf(stderr, "Errore apertura file: %s\n", data->file_list[index]);
             index++;
             continue;
         }
         fclose(new_file);
         // Attendo il ritardo tdelay
-        sleepTime(tdelay);
-        scrivi_coda(coda, file_list[index]);
+        sleepTime(data->tdelay);
+        scrivi_coda(coda, data->file_list[index]);
         // TEST STAMPA CALCOLO
         //printf("Test calcolo %s: %ld\n", file_list[index], calcola_res(file_list[index]));
         index++;
     }
     // Poi esploro la directory se è stata passata
-    if (dname != NULL) explore_dir(coda, tdelay, dname);
+    if (data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
     printf("Esplorazione finita\n");
     no_more_files = 1;
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
+    printf("ESPLORA DIR: %s\n", dname);
     struct dirent *entry;
     struct stat file_stat;
 
@@ -89,6 +91,8 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
         // Crea il path completo
         int path_len = strlen(dname)+strlen(entry->d_name) + 2;
         snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
+
+        printf("-> full path: %s\n", full_path);
 
         // Ottieni informazioni sul file
         if (stat(full_path, &file_stat) == -1) {
