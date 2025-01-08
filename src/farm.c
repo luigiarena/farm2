@@ -79,7 +79,7 @@ int main(int argc, char *argv[]){
 
         V_PRINT_MSG(COLLECTOR, "avvia funzione main");
         // Correggere dati di input
-		collector_main(data->tdelay);
+		collector_main();
 	} else {
 		// Padre: MasterWorker
 
