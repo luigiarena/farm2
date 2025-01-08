@@ -5,6 +5,8 @@
     File: coda.h
     Descrizione: 
 */
+#ifndef UTILITY_H
+#define UTILITY_H
 
 // Colori per shell
 #define ANSI_COLOR_GREY     "\x1b[30;1m"
@@ -36,6 +38,6 @@
 #define BUF_MAX_SIZE                  255
 #define PATH_MAX_LEN                  255
 
-void usage_help();
-
 int sleepTime(long miliseconds);
+
+#endif
