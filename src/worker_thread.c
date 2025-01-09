@@ -104,7 +104,7 @@ void* worker_thread(void* arg) {
             pthread_exit(NULL);
         }
 
-        //printf("Thread %ld ha inviato: %s\n", tid, message);
+        printf("Thread %ld ha inviato: %s\n", tid, message);
         close(client_socket);
 
         //pthread_mutex_unlock(&socket_mtx);

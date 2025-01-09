@@ -40,7 +40,7 @@ int pool_manager(pool_t *pool) {
         //if (coda->counter != 0) printf("Letto: %s\n", leggi_coda(coda));
         //printf("Pool Manager aspetta fine\n");
         if (no_more_files) {
-            printf("------------------------------------------------Ok sono dentro\n");
+            //printf("------------------------------------------------Ok sono dentro\n");
             stop_signal = 1;
             //scrivi_coda(coda, "-1");
         }
@@ -54,7 +54,7 @@ int pool_manager(pool_t *pool) {
     worker_t *temp = pool->list;
 
     int active_workers = 0;
-    printf("Tentativo di join da parte di pool_manager con i worker\n");
+    //printf("Tentativo di join da parte di pool_manager con i worker\n");
     while (pool->list != NULL) {
         //printf("Entro nel ciclo di join di pool\n");
         //pthread_mutex_lock(&pool->mtx);
@@ -63,7 +63,7 @@ int pool_manager(pool_t *pool) {
             fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", pool->list->id);
             exit(EXIT_FAILURE);
         }
-        printf("Worker %d - %ld chiuso\n", pool->list->id, pool->list->tid);
+        //printf("Worker %d - %ld chiuso\n", pool->list->id, pool->list->tid);
         temp = pool->list;
         pool->list = pool->list->next;
         free(temp);
@@ -71,7 +71,7 @@ int pool_manager(pool_t *pool) {
         active_workers++;
     }
 
-    printf("POOL MANAGER STA PER TERMINARE\n");
+    //printf("POOL MANAGER STA PER TERMINARE\n");
 
     return active_workers;
 }

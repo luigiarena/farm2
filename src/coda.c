@@ -68,6 +68,7 @@ char *leggi_coda(coda_t *c) {
     // Se la coda è vuota aspetta che venga riempita
     if (c->counter == 0) pthread_cond_wait(&c->empty, &c->mtx);
     strncpy(path, c->task[c->reader], PATH_MAX_LEN);
+    printf("ESTRATTO DALLA CODA: %s\n", path);
     //path = c->task[c->reader];
     c->counter--;
     c->reader++;

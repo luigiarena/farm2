@@ -146,14 +146,12 @@ void masterWorker_main(master_data_t *data) {
 
     V_PRINT_MSG(MASTERWORKER, "attende il join con l'esploratore");
 
-    printf("Prima della join\n");
     // Attende la chiusura di Explorer
     // printf("Masterworker cerca di joinare explorer: %ld\n", explorer_tid);
     if (pthread_join(explorer_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
-    printf("Dopo della join\n");
 
     // V_PRINT_MSG(MASTERWORKER, "dopo della join");
 
@@ -179,7 +177,7 @@ void masterWorker_main(master_data_t *data) {
 
     // Salvo su file il numero di thread worker attivi
     // printf("Numero di worker attivi: %d\n", pool->nthread);
-    printf("Salva numero di active_workers: %d\n", active_workers);
+    //printf("Salva numero di active_workers: %d\n", active_workers);
     save_nworkers(active_workers, "nworkeratexit.txt");
 
     V_PRINT_MSG(MASTERWORKER, "chiusura");
@@ -207,12 +205,7 @@ static void *handler_signals(void *arg) {
                 break;
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
-                //stop_signal = 1;
-                printf("usr_counter prima: %d\n", usr_counter);
-                //pthread_mutex_lock(&usr_counter_mutex);
-                usr2_signal++;
-                //pthread_mutex_unlock(&usr_counter_mutex);
-                printf("usr_counter dopo: %d\n", usr_counter);
+                stop_signal = 1;
                 break;
             case SIGTERM:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
@@ -227,7 +220,7 @@ static void *handler_signals(void *arg) {
             case SIGUSR2:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
                 //pthread_mutex_lock(&usr_counter_mutex);
-                usr1_signal++;
+                usr2_signal++;
                 //pthread_mutex_unlock(&usr_counter_mutex);
                 break;
             default:

@@ -165,13 +165,17 @@ void collector_main() {
             V_PRINT_ARG(COLLECTOR, "ricevuto: %s", buffer);
         }
     */
-        printf("%s\n", buffer);
+        //printf("%s\n", buffer);
         
         // Fa il parsing del messaggio ricevuto per salvare i valori
         res = atol(strtok(buffer, ":"));
         strcpy(path, strtok(0, ":"));
 
         printf("%ld - %s\n", res, path);
+
+        // Aggiunge i risultati alla lista
+        add_res(res, path);
+
         // Chiude la connessione con il client
         close(client_socket);
     }
@@ -215,9 +219,9 @@ void mask_signals_collector() {
 
 // Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
 int add_res(long sum, char *path) {
-    printf("ADD_RES cerca LOCK\n");
+    //printf("ADD_RES cerca LOCK\n");
     pthread_mutex_lock(&result_mutex);
-    printf("ADD_RES prende LOCK\n");
+    //printf("ADD_RES prende LOCK\n");
     result_t *iter = result_list;
     result_t *new;
 
@@ -241,7 +245,7 @@ int add_res(long sum, char *path) {
         iter->next = new;
     }
     pthread_mutex_unlock(&result_mutex);
-    printf("ADD_RES rilascia LOCK\n");
+    //printf("ADD_RES rilascia LOCK\n");
     return 0;
 }
 
@@ -256,7 +260,7 @@ void printlist() {
 
 	while(iter != NULL) {
         //printf("ciclo di stampa %d\n", i++);
-		fprintf(stdout, "%10ld %s\n", iter->sum, iter->path);
+		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
 		iter=iter->next;
 	}
 	fflush(stdout);
@@ -266,12 +270,12 @@ static void *printerThread (void *arg) {
     while(!stop_printer) {
         //printf("Test di stampa del printer %d\n", ++i);
         if(result_list != NULL) {
-            printf("printer cerca LOCK\n");
+            //printf("printer cerca LOCK\n");
             pthread_mutex_lock(&result_mutex);
-            printf("printer prende LOCK\n");
+            //printf("printer prende LOCK\n");
             printlist();
             pthread_mutex_unlock(&result_mutex);
-            printf("printer rilascia LOCK\n");
+            //printf("printer rilascia LOCK\n");
         }
         sleepTime(1000);
     }

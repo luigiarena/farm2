@@ -43,7 +43,7 @@ int main(int argc, char *argv[]){
 
     // Da stampare solo con verbose
     //if (verbose) {
-    if (1) {
+    if (verbose) {
         printf("MASTER DATA\n");
         printf("  nthread: %d\n", data->nthread);
         printf("     qlen: %d\n", data->qlen);
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]){
 		// Padre: MasterWorker
 
         // Attende che collector abbia avviato la connessione
-		sleepTime(1000);
+		sleepTime(200);
 
         V_PRINT_MSG(FARM,"avvia processo main di masterworker");
 		masterWorker_main(data);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]){
         V_PRINT_MSG(MASTERWORKER,"attende chiusura di collector");
 
         // Attendo la chiusura di Collector
-        printf("Attendo chiusura Collector\n");
+        //printf("Attendo chiusura Collector\n");
 		wait(NULL);
 
         V_PRINT_MSG(FARM,"chiusura");
