@@ -43,33 +43,41 @@ result_t *result_list = NULL;
 static void *printerThread (void *arg);
 
 void collector_main() {
-
-    char buffer[BUF_MAX_SIZE];
-    int server_socket, client_socket;
-    struct sockaddr_un sa;
-    int nread;
-
-    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
-
     // Maschera i segnali per il processo Collector
     mask_signals_collector();
 
+    long res;
+    char *path = malloc(sizeof(char)*PATH_MAX_LEN);
+    char buffer[BUF_MAX_SIZE];
+    //char ack[BUF_MAX_SIZE];
+
+    int server_socket, client_socket;
+    struct sockaddr_un server_addr, client_addr;
+    socklen_t client_len;
+    int nread;
+
+    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
+/*
     // Rimuove il vecchio socket se esiste
     unlink(SOCKET_PATH);
-
+*/
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
-        perror("COLLECTOR ERROR -> creazione socket fallita\n");
+        perror("Collector error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "socket creato");
 
     // Configurazione socket
-    sa.sun_family = AF_UNIX;
-    strcpy(sa.sun_path, SOCKET_PATH);
-
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sun_family = AF_UNIX;
+    strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
+    
+    // Rimuove il vecchio socket se esiste
+    unlink(SOCKET_PATH);
+    
     // Binding
-    if (bind(server_socket, (struct sockaddr*)&sa, sizeof(sa)) == -1) {
+    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
@@ -81,8 +89,6 @@ void collector_main() {
         close(server_socket);
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "listen socket");
-
-    V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
     result_list = NULL;
 
@@ -110,15 +116,20 @@ void collector_main() {
     } else V_PRINT_MSG(COLLECTOR, "printer avviato");
 
     // Collector entra in un loop di ascolto
+    V_PRINT_MSG(COLLECTOR, "In ascolto...");
     while (!stop_collector) {
         // Accetta connessioni
-        client_socket = accept(server_socket, NULL, NULL);
-        if (client_socket < 0) {
+        //printf("Collector aspetta per la connessione\n");
+        client_len = sizeof(client_addr);
+        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
+        if (client_socket == -1) {
             perror("Collector error -> accept connessione");
             close(server_socket);
             exit(EXIT_FAILURE);
         }
+        //printf("Collector accetta connessione\n");
 
+        memset(buffer, 0, BUF_MAX_SIZE);
         // Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
         if (nread < 0) {
@@ -127,6 +138,7 @@ void collector_main() {
             continue;
             //break;
         }
+        //printf("Collector riceve messaggio: %s\n", buffer);
 
         // Assicura la terminazione della stringa
         buffer[nread] = '\0';  
@@ -142,19 +154,31 @@ void collector_main() {
             //sleep(3);
             V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
-            write(client_socket, ack, strlen(ack));
+            write(client_socket, ack, 4);
+        } /*else {
+
+            printf("Messaggio: %s\n", buffer);
+            char msg[256] = "Ciao a te";
+            //write(client_socket, msg, strlen(msg));
+
+            // Stampa il messaggio ricevuto
+            V_PRINT_ARG(COLLECTOR, "ricevuto: %s", buffer);
         }
+    */
+        printf("%s\n", buffer);
+        
+        // Fa il parsing del messaggio ricevuto per salvare i valori
+        res = atol(strtok(buffer, ":"));
+        strcpy(path, strtok(0, ":"));
 
-        // Stampa il messaggio ricevuto
-        V_PRINT_ARG(COLLECTOR, "ricevuto: %s", buffer);
-
+        printf("%ld - %s\n", res, path);
         // Chiude la connessione con il client
         close(client_socket);
     }
 
     // Chiusura del socket server
     close(server_socket);
-    unlink(SOCKET_PATH);
+    //unlink(SOCKET_PATH);
     V_PRINT_MSG(COLLECTOR, "chiusura");
 
     // Rimane attivo per testare i segnali
@@ -165,6 +189,7 @@ void collector_main() {
         sleep(1);
     }
     */
+    exit(EXIT_SUCCESS);
 }
 
 void mask_signals_collector() {

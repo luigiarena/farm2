@@ -35,7 +35,7 @@
 
 // Definizioni di alcune costanti comuni
 #define SOCKET_PATH			"./farm2.sck"
-#define BUF_MAX_SIZE                  255
+#define BUF_MAX_SIZE                  265
 #define PATH_MAX_LEN                  255
 
 int sleepTime(long miliseconds);

@@ -40,11 +40,12 @@ volatile sig_atomic_t usr2_signal = 0;
 volatile sig_atomic_t usr_counter = 0;
 volatile sig_atomic_t no_more_files = 0;
 
-pthread_mutex_t usr_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t socket_mtx = PTHREAD_MUTEX_INITIALIZER;
 /*
 pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 */
+// Coda Concorrente condivisa
 coda_t *coda;
 
 static void *handler_signals(void *arg);
@@ -80,10 +81,9 @@ void masterWorker_main(master_data_t *data) {
     ec_not(pthread_detach(handlerThread), 0, "Masterworker pthread_detach");
 
     // Creazione socket
-    int server_socket;
-    //int n_workers = nthread;
 
-    struct sockaddr_un sa;
+    int server_socket;
+    struct sockaddr_un server_addr;
     char buffer[BUF_MAX_SIZE];
 
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -92,10 +92,12 @@ void masterWorker_main(master_data_t *data) {
         exit(EXIT_FAILURE);
     }
 
-    // Configurazione socket
-    sa.sun_family = AF_UNIX;
-    strcpy(sa.sun_path, SOCKET_PATH);
 
+    // Configurazione del socket
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sun_family = AF_UNIX;
+    strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
+/*
     V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
     // Connessione al server (collector)
     int tentativi=0;
@@ -106,7 +108,11 @@ void masterWorker_main(master_data_t *data) {
         tentativi++;
         sleep(1);
     }
-
+    //send(server_socket, "Ciao", strlen("Ciao"), 0);
+    //memset(buffer, 0, BUF_MAX_SIZE);
+    //read(server_socket, buffer, BUF_MAX_SIZE);
+    close(server_socket);
+*/
     V_PRINT_MSG(MASTERWORKER, "connessione con Collector stabilita!")
 
     // Crea la coda concorrente
@@ -140,16 +146,28 @@ void masterWorker_main(master_data_t *data) {
 
     V_PRINT_MSG(MASTERWORKER, "attende il join con l'esploratore");
 
+    printf("Prima della join\n");
     // Attende la chiusura di Explorer
     // printf("Masterworker cerca di joinare explorer: %ld\n", explorer_tid);
     if (pthread_join(explorer_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
+    printf("Dopo della join\n");
 
     // V_PRINT_MSG(MASTERWORKER, "dopo della join");
 
     // Invio messaggio "STOP"
+    V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
+    // Connessione al server (collector)
+    int tentativi=0;
+    while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)) {
+        perror("MasterWorker error -> connessione fallita");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+        tentativi++;
+        sleep(1);
+    }
     send(server_socket, "STOP", strlen("STOP"), 0);
     memset(buffer, 0, BUF_MAX_SIZE);
     read(server_socket, buffer, BUF_MAX_SIZE);
@@ -227,4 +245,8 @@ void save_nworkers(int n, char *file) {
     fclose(fp);
 
     return;
+}
+
+int send_message() {
+    return 0;
 }

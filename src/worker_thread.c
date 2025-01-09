@@ -15,6 +15,9 @@
 #include <pthread.h>
 #include <signal.h>
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 #include "worker_thread.h"
 #include "coda.h"
 #include "pool_manager.h"
@@ -23,12 +26,15 @@
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t usr2_signal;
 
+extern pthread_mutex_t socket_mtx;
+
 extern int verbose;
 
 extern coda_t *coda;
 
 //extern int no_more_files;
 int trova_id(pool_t *p, pthread_t tid);
+//void send_message(int socket, struct sockaddr_un *sa, pthread_t tid, char message[]);
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
@@ -44,15 +50,18 @@ void* worker_thread(void* arg) {
     //ec_val(id, 0, "Errore recupero id worker");
 
     V_PRINT_ARG(WORKER, "(%ld) avviato", tid);
-      //sleepTime(500);
+
+    // Connessione al server
+    int client_socket;
+    struct sockaddr_un server_addr;
+    char message[BUF_MAX_SIZE];
+
     char *path = malloc(PATH_MAX_LEN);
     long res = 0;
     while (!stop_signal) {
         if (usr2_signal != 0) {
-            printf("FASE 1\n");
             if (rem_worker(pool, tid) == 0) {
                 usr2_signal--;
-                printf("FASE 2\n");
                 break;
             } else {
                 usr2_signal = 0;
@@ -66,10 +75,43 @@ void* worker_thread(void* arg) {
         }
 
         res = calc_res(path);
+        // Invio messaggio a Collector
+        //pthread_mutex_lock(&socket_mtx);
+
+        // Creazione del socket
+        if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+            perror("Errore nella creazione del socket client");
+            pthread_exit(NULL);
+        }
+
+        // Configurazione del socket
+        memset(&server_addr, 0, sizeof(server_addr));
+        server_addr.sun_family = AF_UNIX;
+        strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
+
+        // Connessione al server
+        if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+            perror("Errore nella connessione al server");
+            close(client_socket);
+            pthread_exit(NULL);
+        }
+
+        // Invio del messaggio
+        snprintf(message, sizeof(message), "%ld:%s", res, path);
+        if (send(client_socket, message, strlen(message), 0) == -1) {
+            perror("Errore nell'invio del messaggio");
+            close(client_socket);
+            pthread_exit(NULL);
+        }
+
+        //printf("Thread %ld ha inviato: %s\n", tid, message);
+        close(client_socket);
+
+        //pthread_mutex_unlock(&socket_mtx);
 
         // TEST DI STAMPA
         // printf("Worker %ld legge------->: %s\n", tid, path);
-        printf("%ld  %s\n", res, path);
+        //printf("%ld  %s\n", res, path);
     }
 
     V_PRINT_ARG(WORKER, "(%ld) terminato", tid);

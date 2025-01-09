@@ -35,8 +35,6 @@ void *explorer (void *arg) {
 
     //printf_coda(coda);
 
-    printf("Esplorazione finita\n");
-
     no_more_files = 1;
     scrivi_coda(coda, "");
     //printf_coda(coda);
@@ -46,7 +44,7 @@ void *explorer (void *arg) {
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 void fill_coda(coda_t *coda, master_data_t *data) {
-    printf("Esplorazione iniziata\n");
+    //printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
 
@@ -69,6 +67,7 @@ void fill_coda(coda_t *coda, master_data_t *data) {
     // Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
+    //printf("Esplorazione finita\n");
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {

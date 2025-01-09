@@ -92,6 +92,7 @@ int main(int argc, char *argv[]){
         V_PRINT_MSG(MASTERWORKER,"attende chiusura di collector");
 
         // Attendo la chiusura di Collector
+        printf("Attendo chiusura Collector\n");
 		wait(NULL);
 
         V_PRINT_MSG(FARM,"chiusura");
