@@ -44,6 +44,10 @@ int pool_manager(pool_t *pool) {
             stop_signal = 1;
             //scrivi_coda(coda, "-1");
         }
+        if (usr1_signal != 0) {
+            add_worker(pool);
+            usr1_signal--;
+        }
     }
 
     // Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
@@ -59,7 +63,7 @@ int pool_manager(pool_t *pool) {
             fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", pool->list->id);
             exit(EXIT_FAILURE);
         }
-        printf("Worker %d chiuso\n", pool->list->id);
+        printf("Worker %d - %ld chiuso\n", pool->list->id, pool->list->tid);
         temp = pool->list;
         pool->list = pool->list->next;
         free(temp);
@@ -68,7 +72,7 @@ int pool_manager(pool_t *pool) {
     }
 
     printf("POOL MANAGER STA PER TERMINARE\n");
-    
+
     return active_workers;
 }
 
@@ -92,11 +96,12 @@ void add_worker(pool_t *p) {
     w->next = p->list;
     w->id = (p->id_counter)+1;
 
-    if (pthread_create(&w->tid, NULL, &worker_thread, &p) != 0) {
+    if (pthread_create(&w->tid, NULL, &worker_thread, p) != 0) {
         fprintf(stderr, "errore pthread_create worker: %d\n", w->id);
         pthread_mutex_unlock(&p->mtx);
         exit(EXIT_FAILURE);
     }
+
     printf("AGGIUNGENDO WORKER: %d - %ld\n", w->id, w->tid);
     
     p->list = w;
@@ -106,22 +111,30 @@ void add_worker(pool_t *p) {
     printf("ADD_WORKER rilascia LOCK\n");
 }
 
-void rem_worker(pool_t *p, pthread_t tid) {
+int rem_worker(pool_t *p, pthread_t tid) {
     worker_t *w = malloc(sizeof(worker_t));
     worker_t *prev = malloc(sizeof(worker_t));
     printf("REM_WORKER cerca LOCK\n");
-    pthread_mutex_lock(&p->mtx);
+    pthread_mutex_trylock(&p->mtx);
+    if (p->counter == 1) {
+        pthread_mutex_unlock(&p->mtx);
+        printf("REM_WORKER rilascia LOCK\n");
+        return -1;
+    }
     printf("REM_WORKER prende LOCK\n");
+    prev = p->list;
     w = p->list;
-    while (w != NULL && w->tid != tid) {
-        prev = w;
+    if (w != NULL && w->tid == tid) p->list = p->list->next;
+    else {
         w = w->next;
-    }
-    if (w != NULL) {
+        while (w != NULL && w->tid != tid) {
+            prev = w;
+            w = w->next;
+        }
         prev->next = w->next;
-        free(w);
-        p->counter--;
     }
+    p->counter--;
     pthread_mutex_unlock(&p->mtx);
     printf("REM_WORKER rilascia LOCK\n");
+    return 0;
 }

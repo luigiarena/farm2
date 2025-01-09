@@ -21,7 +21,6 @@
 #include "utility.h"
 
 extern volatile sig_atomic_t stop_signal;
-extern volatile sig_atomic_t usr1_signal;
 extern volatile sig_atomic_t usr2_signal;
 
 extern int verbose;
@@ -35,6 +34,10 @@ int trova_id(pool_t *p, pthread_t tid);
 void* worker_thread(void* arg) {
     mask_signals_worker();
 
+    pool_t *pool = (pool_t *) arg;
+    printf("Test pool->counter: %d\n", pool->counter);
+    printf("Test pool->next->id: %d\n", pool->list->id);
+
     pthread_t tid = pthread_self();
     //int id = 0;
     //int id = trova_id(p, tid);
@@ -44,6 +47,18 @@ void* worker_thread(void* arg) {
       //sleepTime(500);
     char *path = malloc(PATH_MAX_LEN);
     while (!stop_signal) {
+        if (usr2_signal != 0) {
+            printf("FASE 1\n");
+            if (rem_worker(pool, tid) == 0) {
+                //deleted_workers++;
+                usr2_signal--;
+                printf("FASE 2\n");
+                break;
+            } else {
+                usr2_signal = 0;
+            }
+            //pthread_exit(NULL);
+        }
         //V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
         //leggi_coda(p->coda);
         // AGGIUNGI CONTROLLO PER USR2
@@ -53,17 +68,10 @@ void* worker_thread(void* arg) {
         //if (coda->counter != 0) path = leggi_coda(coda);
         path = leggi_coda(coda);
         if (strcmp(path, "") == 0) {
-            //printf("PATH NULLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
             scrivi_coda(coda, "");
             break;
         }
-        /*
-        if (strcmp(path, "FINE")) {
-            printf("Worker %ld HA PRESO LA FINE!\n", tid);
-            scrivi_coda(coda, "FINE");
-            break;
-        }
-        */
+
         printf("Worker %ld legge------->: %s\n", tid, path);
         //sleepTime(500);
     }

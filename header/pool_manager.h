@@ -26,6 +26,6 @@ int pool_manager(pool_t *pool);
 
 pool_t *init_pool(int n);
 void add_worker(pool_t *p);
-void rem_worker(pool_t *p, pthread_t tid);
+int rem_worker(pool_t *p, pthread_t tid);
 
 #endif

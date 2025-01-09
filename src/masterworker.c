@@ -192,7 +192,7 @@ static void *handler_signals(void *arg) {
                 //stop_signal = 1;
                 printf("usr_counter prima: %d\n", usr_counter);
                 //pthread_mutex_lock(&usr_counter_mutex);
-                usr1_signal++;
+                usr2_signal++;
                 //pthread_mutex_unlock(&usr_counter_mutex);
                 printf("usr_counter dopo: %d\n", usr_counter);
                 break;
