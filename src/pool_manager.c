@@ -89,9 +89,9 @@ pool_t *init_pool(int n) {
 void add_worker(pool_t *p) {
     worker_t *w = malloc(sizeof(worker_t));
 
-    printf("ADD_WORKER cerca LOCK\n");
+    //printf("ADD_WORKER cerca LOCK\n");
     pthread_mutex_lock(&p->mtx);
-    printf("ADD_WORKER prende LOCK\n");
+    //printf("ADD_WORKER prende LOCK\n");
 
     w->next = p->list;
     w->id = (p->id_counter)+1;
@@ -102,26 +102,26 @@ void add_worker(pool_t *p) {
         exit(EXIT_FAILURE);
     }
 
-    printf("AGGIUNGENDO WORKER: %d - %ld\n", w->id, w->tid);
+    //printf("AGGIUNGENDO WORKER: %d - %ld\n", w->id, w->tid);
     
     p->list = w;
     p->id_counter++;
     p->counter++;
     pthread_mutex_unlock(&p->mtx);
-    printf("ADD_WORKER rilascia LOCK\n");
+    //printf("ADD_WORKER rilascia LOCK\n");
 }
 
 int rem_worker(pool_t *p, pthread_t tid) {
     worker_t *w = malloc(sizeof(worker_t));
     worker_t *prev = malloc(sizeof(worker_t));
-    printf("REM_WORKER cerca LOCK\n");
+    //printf("REM_WORKER cerca LOCK\n");
     pthread_mutex_trylock(&p->mtx);
     if (p->counter == 1) {
         pthread_mutex_unlock(&p->mtx);
-        printf("REM_WORKER rilascia LOCK\n");
+        //printf("REM_WORKER rilascia LOCK\n");
         return -1;
     }
-    printf("REM_WORKER prende LOCK\n");
+    //printf("REM_WORKER prende LOCK\n");
     prev = p->list;
     w = p->list;
     if (w != NULL && w->tid == tid) p->list = p->list->next;
@@ -135,6 +135,6 @@ int rem_worker(pool_t *p, pthread_t tid) {
     }
     p->counter--;
     pthread_mutex_unlock(&p->mtx);
-    printf("REM_WORKER rilascia LOCK\n");
+    //printf("REM_WORKER rilascia LOCK\n");
     return 0;
 }

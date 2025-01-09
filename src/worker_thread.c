@@ -35,8 +35,8 @@ void* worker_thread(void* arg) {
     mask_signals_worker();
 
     pool_t *pool = (pool_t *) arg;
-    printf("Test pool->counter: %d\n", pool->counter);
-    printf("Test pool->next->id: %d\n", pool->list->id);
+    //printf("Test pool->counter: %d\n", pool->counter);
+    //printf("Test pool->next->id: %d\n", pool->list->id);
 
     pthread_t tid = pthread_self();
     //int id = 0;
@@ -46,34 +46,30 @@ void* worker_thread(void* arg) {
     V_PRINT_ARG(WORKER, "(%ld) avviato", tid);
       //sleepTime(500);
     char *path = malloc(PATH_MAX_LEN);
+    long res = 0;
     while (!stop_signal) {
         if (usr2_signal != 0) {
             printf("FASE 1\n");
             if (rem_worker(pool, tid) == 0) {
-                //deleted_workers++;
                 usr2_signal--;
                 printf("FASE 2\n");
                 break;
             } else {
                 usr2_signal = 0;
             }
-            //pthread_exit(NULL);
         }
-        //V_PRINT_ARG(WORKER, "(%d) sta eseguendo...", id);
-        //leggi_coda(p->coda);
-        // AGGIUNGI CONTROLLO PER USR2
-        //sleep(1);
-        //printf("Worker %ld cerca di leggere coda\n", tid);
-        //leggi_coda(coda);
-        //if (coda->counter != 0) path = leggi_coda(coda);
+
         path = leggi_coda(coda);
         if (strcmp(path, "") == 0) {
             scrivi_coda(coda, "");
             break;
         }
 
-        printf("Worker %ld legge------->: %s\n", tid, path);
-        //sleepTime(500);
+        res = calc_res(path);
+
+        // TEST DI STAMPA
+        // printf("Worker %ld legge------->: %s\n", tid, path);
+        printf("%ld  %s\n", res, path);
     }
 
     V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
@@ -101,7 +97,7 @@ void mask_signals_worker() {
     ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Worker sigaction ignore");
 }
 
-long calcola_res (char *path_file){
+long calc_res (char *path_file){
     FILE *fp;
     // Apre il file
     fp = fopen(path_file, "rb");

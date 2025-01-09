@@ -13,6 +13,6 @@ void* worker_thread(void* arg);
 
 void mask_signals_worker();
 
-long calcola_res (char *path_file);
+long calc_res (char *path_file);
 
 #endif
