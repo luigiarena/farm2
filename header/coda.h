@@ -10,22 +10,27 @@
 
 #include <pthread.h>
 
-typedef struct {
+typedef struct task {
+    char *path;
+    int end;
+    struct task *next;
+} task_t;
+
+typedef struct coda {
     pthread_mutex_t mtx;
-    pthread_cond_t full;
-    pthread_cond_t empty;
+    pthread_cond_t not_full;
+    pthread_cond_t not_empty;
+    int end;
     int size;
     int counter;
-    int reader;
-    int writer;
     int tot;
-    char *task[];
+    task_t *list;
 } coda_t;
 
 coda_t *init_coda(int size);
-void scrivi_coda(coda_t *c, char *path);
-char *leggi_coda(coda_t *c);
-void printf_coda(coda_t *c);
+void push_coda(coda_t *c, char *path, int end);
+char *pop_coda(coda_t *c);
+void print_coda(coda_t *c);
 
 /*
 typedef struct {
@@ -43,7 +48,7 @@ typedef struct {
 coda_t *init_coda(int size);
 void scrivi_coda(coda_t *c, char *path);
 char *leggi_coda(coda_t *c);
-void printf_coda(coda_t *c);
+void print_coda(coda_t *c);
 */
 
 #endif

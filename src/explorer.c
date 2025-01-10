@@ -33,24 +33,36 @@ void *explorer (void *arg) {
     
     fill_coda(coda, data);
 
-    //printf_coda(coda);
+    //print_coda(coda);
+    //no_more_files = 1;
+    //---scrivi_coda(coda, "");
+    //print_coda(coda);
+    // Aggiungo task finale per la chiusura corretta dei worker thread
+    printf("PRIMA DEL TASK TERMINALE\n");
+    //push_coda(coda, "__NO_MORE_FILES__", 1);
+    //scrivi_coda(coda, "__NO_MORE_FILES__");
+    printf("DOPO DEL TASK TERMINALE\n");
+    //print_coda(coda);
+    //push_coda(coda, "END", 1);
 
     no_more_files = 1;
-    scrivi_coda(coda, "");
-    //printf_coda(coda);
-    
+
+    pthread_mutex_lock(&coda->mtx);
+    pthread_cond_broadcast(&coda->not_empty);
+    pthread_mutex_unlock(&coda->mtx);
+
     pthread_exit(NULL);
 }
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 void fill_coda(coda_t *coda, master_data_t *data) {
-    //printf("Esplorazione iniziata\n");
+    printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
 
     // Inserisce prima la lista dei file passati come argomenti
     while (!stop_signal && index < data->num_file) {
-        //printf("Tentativo di inserimento file: %s\n", data->file_list[index]);
+        //("Tentativo di inserimento file: %s\nindex: %d\n", data->file_list[index], index);
         new_file = fopen(data->file_list[index], "rb");
         //ec_val(new_file, NULL, "Errore apertura file");
         if (new_file == NULL) {
@@ -61,13 +73,25 @@ void fill_coda(coda_t *coda, master_data_t *data) {
         fclose(new_file);
         // Attende il ritardo tdelay
         sleepTime(data->tdelay);
-        scrivi_coda(coda, data->file_list[index]);
+
+        pthread_mutex_lock(&coda->mtx);
+        while (coda->counter == coda->size) {
+            pthread_cond_wait(&coda->not_full, &coda->mtx);
+        }
+
+        push_coda(coda, data->file_list[index], 0);
+
+        //printf("Produttore: prodotto %s\n", buffer);
+        pthread_cond_signal(&coda->not_empty);
+        pthread_mutex_unlock(&coda->mtx);
+
+        //scrivi_coda(coda, data->file_list[index]);
         index++;
     }
     // Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
-    //printf("Esplorazione finita\n");
+    printf("Esplorazione finita\n");
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
@@ -107,7 +131,18 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
         } else if (S_ISREG(file_stat.st_mode)) {
             // Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda concorrente
             sleepTime(tdelay);
-            scrivi_coda(coda, full_path);
+
+            pthread_mutex_lock(&coda->mtx);
+            while (coda->counter == coda->size) {
+                pthread_cond_wait(&coda->not_full, &coda->mtx);
+            }
+
+            push_coda(coda, full_path, 0);
+
+            pthread_cond_signal(&coda->not_empty);
+            pthread_mutex_unlock(&coda->mtx);
+
+            //scrivi_coda(coda, full_path);
         }
     }
 

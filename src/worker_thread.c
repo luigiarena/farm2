@@ -26,6 +26,9 @@
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t usr2_signal;
 
+extern volatile sig_atomic_t worker_control;
+extern volatile sig_atomic_t no_more_files;
+
 extern pthread_mutex_t socket_mtx;
 
 extern int verbose;
@@ -58,7 +61,7 @@ void* worker_thread(void* arg) {
 
     char *path = malloc(PATH_MAX_LEN);
     long res = 0;
-    while (!stop_signal) {
+    while (!worker_control) {
         if (usr2_signal != 0) {
             if (rem_worker(pool, tid) == 0) {
                 usr2_signal--;
@@ -67,54 +70,129 @@ void* worker_thread(void* arg) {
                 usr2_signal = 0;
             }
         }
-
-        path = leggi_coda(coda);
-        if (strcmp(path, "") == 0) {
-            scrivi_coda(coda, "");
+        //free(path);
+        //sleepTime(200);
+        //if (no_more_files && coda->counter == 0) break;
+        /*
+        if (coda->list == NULL) {
+            continue;
+        } else if (coda->list->end) {
             break;
         }
-
-        res = calc_res(path);
-        // Invio messaggio a Collector
-        //pthread_mutex_lock(&socket_mtx);
-
-        // Creazione del socket
-        if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-            perror("Errore nella creazione del socket client");
-            pthread_exit(NULL);
+*/
+printf("PRIMA DELLA LOCK\n");
+        pthread_mutex_lock(&coda->mtx);
+printf("DOPO LA LOCK\n");
+        while (coda->counter == 0) {
+            if (no_more_files) {
+                pthread_cond_signal(&coda->not_empty);
+                pthread_mutex_unlock(&coda->mtx);
+                break;
+            }
+            printf("NEL WAIT\n");
+            pthread_cond_wait(&coda->not_empty, &coda->mtx);
         }
 
-        // Configurazione del socket
-        memset(&server_addr, 0, sizeof(server_addr));
-        server_addr.sun_family = AF_UNIX;
-        strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
+        path = pop_coda(coda);
+/*
+        if (strcmp(path, "END") == 0) {
+            push_coda(coda, "END", 1);
+            break;
+        }
+*/
+        if (path == NULL) {
+            printf("CASO SPECIALE\n");
+            pthread_mutex_unlock(&coda->mtx);
+            break;
+            /*
+            pthread_mutex_lock(&coda->mtx);
+            if (coda->end) {
+                //push_coda(coda, "END", 1);
+                printf("CASO SPECIALE END\n");
+                pthread_cond_broadcast(&coda->not_empty);
+                pthread_mutex_unlock(&coda->mtx);
+                break;
+            } else {
+                printf("CASO SPECIALE NON END\n");
+                pthread_mutex_unlock(&coda->mtx);
+                continue;
+            }
+            */
+        }
 
-        // Connessione al server
-        if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-            perror("Errore nella connessione al server");
+        pthread_cond_signal(&coda->not_full);
+        pthread_mutex_unlock(&coda->mtx);
+    printf("INTERMEZZO: %s\n", path);
+/*
+        if (strcmp(path, "")==0) {
+            if (no_more_files && coda->list == NULL) push_coda(coda, "", 1);
+            else continue;
+        }
+        */
+        if (strcmp(path, "")!=0 && strcmp(path, "END")!=0) {
+            //path = leggi_coda(coda);
+            /*
+            if (strcmp(path, "__NO_MORE_FILES__") == 0) {
+                printf("WORKER CONTROL STOP\n");
+                push_coda(coda, "__NO_MORE_FILES__", 1);
+                //scrivi_coda(coda, "__NO_MORE_FILES__");
+                //worker_control = 1;
+                break;
+            } else if (strcmp(path, "") == 0) {
+                continue;
+            }
+            */
+            // Termino il ciclo se la coda è vuota;
+            /*
+            if (strcmp(path, "") == 0) {
+                //---scrivi_coda(coda, "");
+                break;
+            }
+            */
+            res = calc_res(path);
+            // Invio messaggio a Collector
+            //pthread_mutex_lock(&socket_mtx);
+
+            // Creazione del socket
+            if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+                perror("Errore nella creazione del socket client");
+                pthread_exit(NULL);
+            }
+
+            // Configurazione del socket
+            memset(&server_addr, 0, sizeof(server_addr));
+            server_addr.sun_family = AF_UNIX;
+            strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
+
+            // Connessione al server
+            if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+                perror("Errore nella connessione al server");
+                close(client_socket);
+                pthread_exit(NULL);
+            }
+
+            // Invio del messaggio
+            memset(message, 0, BUF_MAX_SIZE);
+            snprintf(message, sizeof(message), "%ld:%s", res, path);
+            if (send(client_socket, message, strlen(message), 0) == -1) {
+                perror("Errore nell'invio del messaggio");
+                close(client_socket);
+                pthread_exit(NULL);
+            }
+
+            printf("Thread %ld ha inviato: %s\n", tid, message);
             close(client_socket);
-            pthread_exit(NULL);
-        }
 
-        // Invio del messaggio
-        snprintf(message, sizeof(message), "%ld:%s", res, path);
-        if (send(client_socket, message, strlen(message), 0) == -1) {
-            perror("Errore nell'invio del messaggio");
-            close(client_socket);
-            pthread_exit(NULL);
-        }
+            //pthread_mutex_unlock(&socket_mtx);
 
-        printf("Thread %ld ha inviato: %s\n", tid, message);
-        close(client_socket);
-
-        //pthread_mutex_unlock(&socket_mtx);
-
-        // TEST DI STAMPA
-        // printf("Worker %ld legge------->: %s\n", tid, path);
-        //printf("%ld  %s\n", res, path);
+            // TEST DI STAMPA
+            // printf("Worker %ld legge------->: %s\n", tid, path);
+            //printf("%ld  %s\n", res, path);
+        } else break;
     }
 
     V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
+    printf("Worker %ld terminato\n", tid);
     
     pthread_exit(NULL);
 }
