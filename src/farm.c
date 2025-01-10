@@ -34,15 +34,12 @@ void usage_help(char *pname);
 // Funzione main del programma
 int main(int argc, char *argv[]){
 
-	// Variabili generali farm
-	pid_t pid;
     verbose = 0;
 
     // Analizza i parametri dati in input
     master_data_t * data = read_opt(argc, argv);
 
-    // Da stampare solo con verbose
-    //if (verbose) {
+    // Stampa la struttura dei dati di input
     if (verbose) {
         printf("MASTER DATA\n");
         printf("  nthread: %d\n", data->nthread);
@@ -64,10 +61,11 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
-    V_PRINT_MSG(FARM, "apertura");
+    V_PRINT_MSG(FARM, "avvio");
 
 	// Creazione del processo figlio
     V_PRINT_MSG(FARM, "crea processo collector");
+    pid_t pid;
 	pid = fork();
 	if (pid < 0) {
 		perror("errore nella creazione del secondo processo\n");
@@ -77,8 +75,7 @@ int main(int argc, char *argv[]){
 	if(pid == 0) {
 		// Figlio: Collector
 
-        V_PRINT_MSG(COLLECTOR, "avvia funzione main");
-        // Correggere dati di input
+        V_PRINT_MSG(FARM, "ha creato processo collector");
 		collector_main();
 	} else {
 		// Padre: MasterWorker
@@ -89,10 +86,7 @@ int main(int argc, char *argv[]){
         V_PRINT_MSG(FARM,"avvia processo main di masterworker");
 		masterWorker_main(data);
 
-        V_PRINT_MSG(MASTERWORKER,"attende chiusura di collector");
-
-        // Attendo la chiusura di Collector
-        //printf("Attendo chiusura Collector\n");
+        // Attende la chiusura di Collector
 		wait(NULL);
 
         V_PRINT_MSG(FARM,"chiusura");
@@ -106,7 +100,7 @@ void usage_help(char* pname) {
     fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", pname);
 }
 
-// Riceve i dati di input e costruisce la struttura necessaria al funzionamento di masterworker
+// Riceve i dati di input, li analizza e costruisce la struttura necessaria al funzionamento di masterworker
 master_data_t *read_opt(int argc, char *argv[]) {
     master_data_t *data = malloc(sizeof(master_data_t));
     ec_val(data, NULL, "Errore malloc master_data");
@@ -118,7 +112,7 @@ master_data_t *read_opt(int argc, char *argv[]) {
     data->dname = NULL;
     data->num_file = 0;
 
-    // Strutture di appoggio per creare la lista dei file - argomento
+    // Strutture di appoggio per creare la lista dei file/argomento
     int file_temp[argc];
     int index_temp = 0;
 
@@ -128,84 +122,88 @@ master_data_t *read_opt(int argc, char *argv[]) {
     while (index < argc) {
         opt = argv[index];
         if (opt[0] == '-') {
-            switch (opt[1]) {
-                case 'h':
-                    printf("Opzioni:\n"
-                        "\t-n nthread\tnumero iniziale di thread worker\t(default 1)\n"
-                        "\t-q qlen\t\tlunghezza della coda concorrente\t(default 8)\n"
-                        "\t-t tdelay\tritardo inserimento task nella coda\t(default 0)\n"
-                        "\t-d dname\tnaviga nella directory per cercare\n"
-                            "\t\t\tfile da leggere in input\t\t(default .)\n");
-                    exit(EXIT_SUCCESS);
-                case 'v':
-                    verbose = 1;
-                    break;
-                case 'n':
-                    index++;
-                    if (index >= argc) {
-                        fprintf(stderr, "Valore di -n non valido\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    opt = argv[index];
-                    data->nthread = atoi(opt);
-                    if (data->nthread < NTHREAD_MIN) {
-                        fprintf(stderr, "Il numero di thread deve essere un numero intero maggiore o uguale ad %d\n", NTHREAD_MIN);
-                        exit(EXIT_FAILURE);
-                    }
-                    break;
-                case 'q':
-                    index++;
-                    if (index >= argc) {
-                        fprintf(stderr, "Valore di -q non valido\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    opt = argv[index];
-                    data->qlen = atoi(opt);
-                    if (data->qlen < 1) {
-                        fprintf(stderr, "La lunghezza della coda deve essere un numero intero maggiore o uguale ad 1\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    break;
-                case 't':
-                    index++;
-                    if (index >= argc) {
-                        fprintf(stderr, "Valore di -t non valido\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    opt = argv[index];
-                    data->tdelay = atol(opt);
-                    if (data->tdelay < 0) {
-                        fprintf(stderr, "Il tempo di delay deve essere un numero intero maggiore o uguale ad 0\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    break;
-                case 'd':
-                    index++;
-                    if (index >= argc) {
-                        fprintf(stderr, "Valore di -d non valido\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    opt = argv[index];
-                    if(strlen(opt) > PATH_MAX_LEN) {
-                        fprintf(stderr,"Nome directory troppo lungo (MAX 255 caratteri).\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    // Elimina il carattere '/' alla fine del path se è stato inserito
-                    if(opt[strlen(opt)-1] == '/') opt[strlen(opt)-1] = '\0';
+            if (opt[1] != '\0' && opt[2] == '\0') {
+                switch (opt[1]) {
+                    case 'h':
+                        printf("Opzioni:\n"
+                            "\t-n nthread\tnumero iniziale di thread worker\t(default 1)\n"
+                            "\t-q qlen\t\tlunghezza della coda concorrente\t(default 8)\n"
+                            "\t-t tdelay\tritardo inserimento task nella coda\t(default 0)\n"
+                            "\t-d dname\tnaviga nella directory per cercare\n"
+                                "\t\t\tfile da leggere in input\t\t(default .)\n");
+                        exit(EXIT_SUCCESS);
+                    case 'v':
+                        verbose = 1;
+                        break;
+                    case 'n':
+                        index++;
+                        if (index >= argc) {
+                            fprintf(stderr, "Valore di -n non valido\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        opt = argv[index];
+                        data->nthread = atoi(opt);
+                        if (data->nthread < NTHREAD_MIN) {
+                            fprintf(stderr, "Il numero di thread deve essere un numero intero maggiore o uguale ad %d\n", NTHREAD_MIN);
+                            exit(EXIT_FAILURE);
+                        }
+                        break;
+                    case 'q':
+                        index++;
+                        if (index >= argc) {
+                            fprintf(stderr, "Valore di -q non valido\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        opt = argv[index];
+                        data->qlen = atoi(opt);
+                        if (data->qlen < 1) {
+                            fprintf(stderr, "La lunghezza della coda deve essere un numero intero maggiore o uguale ad 1\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        break;
+                    case 't':
+                        index++;
+                        if (index >= argc) {
+                            fprintf(stderr, "Valore di -t non valido\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        opt = argv[index];
+                        data->tdelay = atol(opt);
+                        if (data->tdelay < 0) {
+                            fprintf(stderr, "Il tempo di delay deve essere un numero intero maggiore o uguale ad 0\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        break;
+                    case 'd':
+                        index++;
+                        if (index >= argc) {
+                            fprintf(stderr, "Valore di -d non valido\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        opt = argv[index];
+                        if(strlen(opt) > PATH_MAX_LEN) {
+                            fprintf(stderr,"Nome directory troppo lungo (MAX 255 caratteri).\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        // Elimina il carattere '/' alla fine del path se è stato inserito
+                        if(opt[strlen(opt)-1] == '/') opt[strlen(opt)-1] = '\0';
 
-                    data->dname = malloc(PATH_MAX_LEN);
-                    strncpy(data->dname, opt, strlen(opt));
-                    DIR *dir = opendir(data->dname);
-                    if (!dir) {
-                        fprintf(stderr, "La directory inserita non e' valida: %s\n", data->dname);
+                        data->dname = malloc(PATH_MAX_LEN);
+                        strncpy(data->dname, opt, strlen(opt));
+                        DIR *dir = opendir(data->dname);
+                        if (!dir) {
+                            fprintf(stderr, "La directory inserita non e' valida: %s\n", data->dname);
+                            exit(EXIT_FAILURE);
+                        }
+                        break;
+                    default:
+                        fprintf(stderr, "Opzione non riconosciuta: %s\n", opt);
+                        usage_help(argv[0]);
                         exit(EXIT_FAILURE);
-                    }
-                    break;
-                default:
-                    fprintf(stderr, "Opzione non riconosciuta: -%s\n", opt);
-                    usage_help(argv[0]);
-                    exit(EXIT_FAILURE);
-                    break;
+                        break;
+                }
+            } else {
+                fprintf(stderr, "Opzione non riconosciuta: %s\n", opt);
             }
         } else {
             if (fopen(opt, "rb") == NULL) {

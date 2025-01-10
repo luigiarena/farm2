@@ -2,7 +2,7 @@
     PROGETTO FARM2
     Autore: Luigi Arena matricola 422353
 
-    File: pool_manager.c
+    File: explorer.c
     Descrizione: 
 */
 
@@ -28,25 +28,15 @@ void fill_coda(coda_t *coda, master_data_t *data);
 void explore_dir(coda_t *coda, long tdelay, char *dname);
 
 void *explorer (void *arg) {
-
     master_data_t *data = (master_data_t *) arg;
     
+    // Riempie la coda
     fill_coda(coda, data);
 
-    //print_coda(coda);
-    //no_more_files = 1;
-    //---scrivi_coda(coda, "");
-    //print_coda(coda);
-    // Aggiungo task finale per la chiusura corretta dei worker thread
-    printf("PRIMA DEL TASK TERMINALE\n");
-    //push_coda(coda, "__NO_MORE_FILES__", 1);
-    //scrivi_coda(coda, "__NO_MORE_FILES__");
-    printf("DOPO DEL TASK TERMINALE\n");
-    //print_coda(coda);
-    //push_coda(coda, "END", 1);
-
+    // Setta la variabile no_more_files
     no_more_files = 1;
 
+    // Manda un segnale per sbloccare tutti i thread in attesa sulla coda vuota
     pthread_mutex_lock(&coda->mtx);
     pthread_cond_broadcast(&coda->not_empty);
     pthread_mutex_unlock(&coda->mtx);
@@ -56,24 +46,24 @@ void *explorer (void *arg) {
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 void fill_coda(coda_t *coda, master_data_t *data) {
-    printf("Esplorazione iniziata\n");
+    //printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
 
     // Inserisce prima la lista dei file passati come argomenti
     while (!stop_signal && index < data->num_file) {
-        //("Tentativo di inserimento file: %s\nindex: %d\n", data->file_list[index], index);
         new_file = fopen(data->file_list[index], "rb");
-        //ec_val(new_file, NULL, "Errore apertura file");
         if (new_file == NULL) {
             fprintf(stderr, "Errore apertura file: %s\n", data->file_list[index]);
             index++;
             continue;
         }
         fclose(new_file);
+
         // Attende il ritardo tdelay
         sleepTime(data->tdelay);
 
+        // Inserisce la stringa nella coda
         pthread_mutex_lock(&coda->mtx);
         while (coda->counter == coda->size) {
             pthread_cond_wait(&coda->not_full, &coda->mtx);
@@ -81,21 +71,19 @@ void fill_coda(coda_t *coda, master_data_t *data) {
 
         push_coda(coda, data->file_list[index], 0);
 
-        //printf("Produttore: prodotto %s\n", buffer);
         pthread_cond_signal(&coda->not_empty);
         pthread_mutex_unlock(&coda->mtx);
 
-        //scrivi_coda(coda, data->file_list[index]);
         index++;
     }
+
     // Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
-    printf("Esplorazione finita\n");
+    //printf("Esplorazione finita\n");
     return;
 }
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
-    //printf("ESPLORA DIR: %s\n", dname);
     struct dirent *entry;
     struct stat file_stat;
 
@@ -117,8 +105,6 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
         int path_len = strlen(dname)+strlen(entry->d_name) + 2;
         snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
 
-        //printf("-> full path: %s\n", full_path);
-
         // Ottiene informazioni sul file
         if (stat(full_path, &file_stat) == -1) {
             fprintf(stderr, "Errore nell'ottenere informazioni sul file: %s\n", full_path);
@@ -129,7 +115,7 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
             // Se è una directory la esplora ricorsivamente
             explore_dir(coda, tdelay, full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
-            // Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda concorrente
+            // Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda
             sleepTime(tdelay);
 
             pthread_mutex_lock(&coda->mtx);
@@ -141,8 +127,6 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
 
             pthread_cond_signal(&coda->not_empty);
             pthread_mutex_unlock(&coda->mtx);
-
-            //scrivi_coda(coda, full_path);
         }
     }
 

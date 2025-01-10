@@ -13,6 +13,7 @@
 
 int verbose;
 
+// Funzione per l'attesa, strutta nanosleep
 int sleepTime(long miliseconds)
 {
    struct timespec rem;

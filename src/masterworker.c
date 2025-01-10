@@ -13,19 +13,13 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
-
-//#include <dirent.h>
 #include <string.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-//#include <sys/stat.h>
-//#include <sys/types.h>
-//#include <sys/wait.h>
 
 #include "masterworker.h"
 #include "explorer.h"
-#include "worker_thread.h"
 #include "coda.h"
 #include "pool_manager.h"
 #include "utility.h"
@@ -37,14 +31,9 @@ extern int verbose;
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
-//volatile sig_atomic_t usr_counter = 0;
+
 volatile sig_atomic_t no_more_files = 0;
 
-pthread_mutex_t socket_mtx = PTHREAD_MUTEX_INITIALIZER;
-/*
-pthread_mutex_t pool_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
-*/
 // Coda Concorrente condivisa
 coda_t *coda;
 
@@ -92,77 +81,45 @@ void masterWorker_main(master_data_t *data) {
         exit(EXIT_FAILURE);
     }
 
-
     // Configurazione del socket
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
     strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
-/*
-    V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
-    // Connessione al server (collector)
-    int tentativi=0;
-    while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&sa, sizeof(sa)) == -1)) {
-        perror("MasterWorker error -> connessione fallita");
-        close(server_socket);
-        exit(EXIT_FAILURE);
-        tentativi++;
-        sleep(1);
-    }
-    //send(server_socket, "Ciao", strlen("Ciao"), 0);
-    //memset(buffer, 0, BUF_MAX_SIZE);
-    //read(server_socket, buffer, BUF_MAX_SIZE);
-    close(server_socket);
-*/
-    V_PRINT_MSG(MASTERWORKER, "connessione con Collector stabilita!")
+
+    V_PRINT_MSG(MASTERWORKER, " fine configurazione connessione")
 
     // Crea la coda concorrente
     coda = init_coda(data->qlen);
-    // printf("Coda init\n");
 
     // Crea il pool dei Worker
     pool_t *pool = init_pool(data->nthread);
-    // printf("Pool init\n");
 
     // Avvia il thread che si occupererà di riempire la coda
     V_PRINT_MSG(MASTERWORKER, "avviato explorer per il riempimento della coda");
+
     pthread_t explorer_tid;
     if (pthread_create(&explorer_tid, NULL, explorer, data) != 0) {
         perror("Masterworker -> errore durante la creazione di explorer");
         exit(EXIT_FAILURE);
-    } else V_PRINT_MSG(MASTERWORKER, "pool manager avviato");
-    V_PRINT_ARG(MASTERWORKER, "avviato pool manager: %ld\n", explorer_tid);
+    }
+    
+    V_PRINT_ARG(MASTERWORKER, "thread explorer avviato: %ld\n", explorer_tid);
 
-    //printf("Counter della coda: %d\n", coda->counter);
-    /*
-    while(!stop_signal) {
-        printf("Masterworker aspetta fine\n");
-        if (coda->counter == 0 && no_more_files) stop_signal = 1;
-        //else printf("Letto: %s\n", leggi_coda(coda));
-        sleepTime(500);
-    }
-    */
-/*
-    while(!stop_signal) {
-        printf("Masterworker pop ---> %s\n", pop_coda(coda));
-        sleepTime(200);
-    }
-*/
-    //int active_workers = 0;
+    // Avvia funzione che gestisce il pool e ritorna il numero di worker attivi
     int active_workers = pool_manager(pool);
 
     V_PRINT_MSG(MASTERWORKER, "attende il join con explorer");
 
     // Attende la chiusura di Explorer
-    // printf("Masterworker cerca di joinare explorer: %ld\n", explorer_tid);
     if (pthread_join(explorer_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
+
     V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
 
-    // V_PRINT_MSG(MASTERWORKER, "dopo della join");
+    // Invia messaggio di terminazione a Collector
 
-    // Invio messaggio "STOP"
     V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
     // Connessione al server (collector)
     int tentativi=0;
@@ -183,8 +140,6 @@ void masterWorker_main(master_data_t *data) {
     unlink(SOCKET_PATH);
 
     // Salvo su file il numero di thread worker attivi
-    // printf("Numero di worker attivi: %d\n", pool->nthread);
-    //printf("Salva numero di active_workers: %d\n", active_workers);
     save_nworkers(active_workers, "nworkeratexit.txt");
 
     V_PRINT_MSG(MASTERWORKER, "chiusura");
@@ -194,7 +149,6 @@ void masterWorker_main(master_data_t *data) {
 
 // Funzione per la gestione dei segnali in MasterWorker
 static void *handler_signals(void *arg) {
-
     int sig;
     while(!stop_signal) {
         if (sigwait((sigset_t *)arg, &sig) != 0) {
@@ -245,8 +199,4 @@ void save_nworkers(int n, char *file) {
     fclose(fp);
 
     return;
-}
-
-int send_message() {
-    return 0;
 }

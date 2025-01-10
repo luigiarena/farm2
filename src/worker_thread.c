@@ -35,24 +35,17 @@ extern int verbose;
 
 extern coda_t *coda;
 
-//extern int no_more_files;
 int trova_id(pool_t *p, pthread_t tid);
-//void send_message(int socket, struct sockaddr_un *sa, pthread_t tid, char message[]);
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
     mask_signals_worker();
 
     pool_t *pool = (pool_t *) arg;
-    //printf("Test pool->counter: %d\n", pool->counter);
-    //printf("Test pool->next->id: %d\n", pool->list->id);
 
     pthread_t tid = pthread_self();
-    //int id = 0;
-    //int id = trova_id(p, tid);
-    //ec_val(id, 0, "Errore recupero id worker");
 
-    V_PRINT_ARG(WORKER, "(%ld) avviato", tid);
+    V_PRINT_ARG(WORKER, "(%ld) partito", tid);
 
     // Connessione al server
     int client_socket;
@@ -70,88 +63,33 @@ void* worker_thread(void* arg) {
                 usr2_signal = 0;
             }
         }
-        //free(path);
-        //sleepTime(200);
-        //if (no_more_files && coda->counter == 0) break;
-        /*
-        if (coda->list == NULL) {
-            continue;
-        } else if (coda->list->end) {
-            break;
-        }
-*/
-printf("PRIMA DELLA LOCK\n");
+
         pthread_mutex_lock(&coda->mtx);
-printf("DOPO LA LOCK\n");
         while (coda->counter == 0) {
             if (no_more_files) {
                 pthread_cond_signal(&coda->not_empty);
                 pthread_mutex_unlock(&coda->mtx);
                 break;
             }
-            printf("NEL WAIT\n");
             pthread_cond_wait(&coda->not_empty, &coda->mtx);
         }
 
         path = pop_coda(coda);
-/*
-        if (strcmp(path, "END") == 0) {
-            push_coda(coda, "END", 1);
-            break;
-        }
-*/
+
         if (path == NULL) {
-            printf("CASO SPECIALE\n");
             pthread_mutex_unlock(&coda->mtx);
             break;
-            /*
-            pthread_mutex_lock(&coda->mtx);
-            if (coda->end) {
-                //push_coda(coda, "END", 1);
-                printf("CASO SPECIALE END\n");
-                pthread_cond_broadcast(&coda->not_empty);
-                pthread_mutex_unlock(&coda->mtx);
-                break;
-            } else {
-                printf("CASO SPECIALE NON END\n");
-                pthread_mutex_unlock(&coda->mtx);
-                continue;
-            }
-            */
         }
 
         pthread_cond_signal(&coda->not_full);
         pthread_mutex_unlock(&coda->mtx);
-    printf("INTERMEZZO: %s\n", path);
-/*
-        if (strcmp(path, "")==0) {
-            if (no_more_files && coda->list == NULL) push_coda(coda, "", 1);
-            else continue;
-        }
-        */
+
         if (strcmp(path, "")!=0 && strcmp(path, "END")!=0) {
-            //path = leggi_coda(coda);
-            /*
-            if (strcmp(path, "__NO_MORE_FILES__") == 0) {
-                printf("WORKER CONTROL STOP\n");
-                push_coda(coda, "__NO_MORE_FILES__", 1);
-                //scrivi_coda(coda, "__NO_MORE_FILES__");
-                //worker_control = 1;
-                break;
-            } else if (strcmp(path, "") == 0) {
-                continue;
-            }
-            */
-            // Termino il ciclo se la coda è vuota;
-            /*
-            if (strcmp(path, "") == 0) {
-                //---scrivi_coda(coda, "");
-                break;
-            }
-            */
+
+            // Calcola il risultato del file
             res = calc_res(path);
+
             // Invio messaggio a Collector
-            //pthread_mutex_lock(&socket_mtx);
 
             // Creazione del socket
             if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -180,19 +118,11 @@ printf("DOPO LA LOCK\n");
                 pthread_exit(NULL);
             }
 
-            printf("Thread %ld ha inviato: %s\n", tid, message);
             close(client_socket);
-
-            //pthread_mutex_unlock(&socket_mtx);
-
-            // TEST DI STAMPA
-            // printf("Worker %ld legge------->: %s\n", tid, path);
-            //printf("%ld  %s\n", res, path);
         } else break;
     }
 
     V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
-    printf("Worker %ld terminato\n", tid);
     
     pthread_exit(NULL);
 }
@@ -225,8 +155,10 @@ long calc_res (char *path_file){
         printf("Errore nell'apertura del file %s\n", path_file);
         return -1;
     }
+
     // Posizionamento alla fine del file
     fseek(fp, 0L, SEEK_END);
+
     // Ottiene posizione corrente (che è la dimensione del file)
     long size = ftell(fp);
     size = size / sizeof(long);
@@ -251,14 +183,11 @@ long calc_res (char *path_file){
 
 int trova_id(pool_t *p, pthread_t tid) {
     worker_t *w = malloc(sizeof(worker_t));
+
     int id = 0;
-    printf("TROVA_ID cerca LOCK\n");
     pthread_mutex_lock(&p->mtx);
-    printf("TROVA_ID prende LOCK\n");
-/*    w = p->list;
-    while (w != NULL && w->tid != tid) w = w->next;
-*/    if (w != NULL) id = w->id;
+    if (w != NULL) id = w->id;
     pthread_mutex_unlock(&p->mtx);
-    printf("TROVA_ID rilascia LOCK\n");
+
     return id;
 }

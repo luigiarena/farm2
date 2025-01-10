@@ -2,7 +2,7 @@
     PROGETTO FARM2
     Autore: Luigi Arena matricola 422353
 
-    File: pool_manager.h
+    File: explorer.h
     Descrizione: 
 */
 #ifndef EXPLORER_H
