@@ -25,12 +25,18 @@ extern volatile sig_atomic_t no_more_files;
 
 extern coda_t *coda;
 
+volatile sig_atomic_t worker_control = 0;
+
 int pool_manager(pool_t *pool) {
-    V_PRINT_MSG(MASTERWORKER, "pool manager partito\n");
+    V_PRINT_MSG(MASTERWORKER, "avvio di pool manager\n");
+
+    // Attende che il riempimento della coda sia iniziato
+    //while (coda->starter == 0) continue;
 
     // Crea i worker thread iniziali
     for (int i = 0; i < pool->nthread; i++) {
         add_worker(pool);
+        V_PRINT_ARG(MASTERWORKER, "avviato worker thread %d", pool->counter);
         //printf("Numero di worker attivi: %d\n", pool->counter);
     }
 
@@ -40,21 +46,53 @@ int pool_manager(pool_t *pool) {
         //if (coda->counter != 0) printf("Letto: %s\n", leggi_coda(coda));
         //printf("Pool Manager aspetta fine\n");
         if (no_more_files) {
-            //printf("------------------------------------------------Ok sono dentro\n");
-            stop_signal = 1;
-            //scrivi_coda(coda, "-1");
+            //pthread_mutex_lock(&coda->mtx);
+                printf("------------------------------------------------Ok sono dentro\n");
+                stop_signal = 1;
+            //pthread_mutex_unlock(&coda->mtx);
         }
         if (usr1_signal != 0) {
             add_worker(pool);
             usr1_signal--;
+            V_PRINT_ARG(MASTERWORKER, "aggiunto worker thread %d", pool->counter);
         }
     }
+
+
+/*
+    while (1) {
+        pthread_mutex_lock(&coda->mtx);
+        if (coda->counter > 0) {
+            //push_coda(coda, "__NO_MORE_FILES__", 1);
+        } else {
+            printf("Uscita!\n");
+            //pthread_cond_broadcast(&coda->empty);
+            break;
+        }
+        pthread_mutex_unlock(&coda->mtx);
+    }
+    */
+/*
+    for (int i=0; i<pool->counter; i++) {
+        push_coda(coda, "__NO_MORE_FILES__", 1);
+    }
+*/
+/*
+    while (1) {
+        pthread_mutex_lock(&coda->mtx);
+        if (coda->counter == 1 && coda->list != NULL && coda->list->end) worker_control = 1; 
+        pthread_mutex_unlock(&coda->mtx);
+        worker_control = 1;
+    }
+*/    
+    printf("------------------------------------------------worker control end\n");
 
     // Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
     worker_t *temp = pool->list;
 
     int active_workers = 0;
     //printf("Tentativo di join da parte di pool_manager con i worker\n");
+    V_PRINT_MSG(MASTERWORKER, "pool manager attende chiusura dei worker thread")
     while (pool->list != NULL) {
         //printf("Entro nel ciclo di join di pool\n");
         //pthread_mutex_lock(&pool->mtx);
@@ -72,6 +110,7 @@ int pool_manager(pool_t *pool) {
     }
 
     //printf("POOL MANAGER STA PER TERMINARE\n");
+    V_PRINT_MSG(MASTERWORKER, "terminazione di pool manager")
 
     return active_workers;
 }

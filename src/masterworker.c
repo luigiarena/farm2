@@ -37,7 +37,7 @@ extern int verbose;
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
-volatile sig_atomic_t usr_counter = 0;
+//volatile sig_atomic_t usr_counter = 0;
 volatile sig_atomic_t no_more_files = 0;
 
 pthread_mutex_t socket_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -124,7 +124,7 @@ void masterWorker_main(master_data_t *data) {
     // printf("Pool init\n");
 
     // Avvia il thread che si occupererà di riempire la coda
-
+    V_PRINT_MSG(MASTERWORKER, "avviato explorer per il riempimento della coda");
     pthread_t explorer_tid;
     if (pthread_create(&explorer_tid, NULL, explorer, data) != 0) {
         perror("Masterworker -> errore durante la creazione di explorer");
@@ -141,10 +141,16 @@ void masterWorker_main(master_data_t *data) {
         sleepTime(500);
     }
     */
-
+/*
+    while(!stop_signal) {
+        printf("Masterworker pop ---> %s\n", pop_coda(coda));
+        sleepTime(200);
+    }
+*/
+    //int active_workers = 0;
     int active_workers = pool_manager(pool);
 
-    V_PRINT_MSG(MASTERWORKER, "attende il join con l'esploratore");
+    V_PRINT_MSG(MASTERWORKER, "attende il join con explorer");
 
     // Attende la chiusura di Explorer
     // printf("Masterworker cerca di joinare explorer: %ld\n", explorer_tid);
@@ -152,6 +158,7 @@ void masterWorker_main(master_data_t *data) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
+    V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
 
     // V_PRINT_MSG(MASTERWORKER, "dopo della join");
 
