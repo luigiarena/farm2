@@ -28,8 +28,8 @@ pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 extern int verbose;
 
-static int stop_collector = 0;
-static int stop_printer = 0;
+volatile sig_atomic_t stop_collector = 0;
+volatile sig_atomic_t stop_printer = 0;
 
 // Struttura contenente i risultati ricevuti da Collector
 typedef struct result {
@@ -49,7 +49,6 @@ void collector_main() {
     long res;
     char *path = malloc(sizeof(char)*PATH_MAX_LEN);
     char buffer[BUF_MAX_SIZE];
-    //char ack[BUF_MAX_SIZE];
 
     int server_socket, client_socket;
     struct sockaddr_un server_addr, client_addr;
@@ -57,10 +56,7 @@ void collector_main() {
     int nread;
 
     V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
-/*
-    // Rimuove il vecchio socket se esiste
-    unlink(SOCKET_PATH);
-*/
+
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
@@ -92,20 +88,6 @@ void collector_main() {
 
     result_list = NULL;
 
-    // Inserzioni di TEST
-    /*
-    add_res(2, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(3, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(5, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(1, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    add_res(4, "ciao ciao");
-    V_PRINT_MSG(COLLECTOR, "risultato aggiunto!");
-    */
-
     // Avvia il thread printer per la stampa parziale dei risultati
     pthread_t printerId;
     if (pthread_create(&printerId, NULL, printerThread, NULL) != 0) {
@@ -119,7 +101,6 @@ void collector_main() {
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
     while (!stop_collector) {
         // Accetta connessioni
-        //printf("Collector aspetta per la connessione\n");
         client_len = sizeof(client_addr);
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
         if (client_socket == -1) {
@@ -127,7 +108,6 @@ void collector_main() {
             close(server_socket);
             exit(EXIT_FAILURE);
         }
-        //printf("Collector accetta connessione\n");
 
         memset(buffer, 0, BUF_MAX_SIZE);
         // Ricezione del messaggio
@@ -136,9 +116,7 @@ void collector_main() {
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
             close(client_socket);
             continue;
-            //break;
         }
-        //printf("Collector riceve messaggio: %s\n", buffer);
 
         // Assicura la terminazione della stringa
         buffer[nread] = '\0';  
@@ -148,30 +126,22 @@ void collector_main() {
             stop_collector = 1;
             stop_printer = 1;
             // Devo fare join printer
+
+
+
+
+
             V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
             printlist();
             free_res(result_list);
-            //sleep(3);
             V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
             write(client_socket, ack, 4);
-        } /*else {
+        } 
 
-            printf("Messaggio: %s\n", buffer);
-            char msg[256] = "Ciao a te";
-            //write(client_socket, msg, strlen(msg));
-
-            // Stampa il messaggio ricevuto
-            V_PRINT_ARG(COLLECTOR, "ricevuto: %s", buffer);
-        }
-    */
-        //printf("%s\n", buffer);
-        
         // Fa il parsing del messaggio ricevuto per salvare i valori
         res = atol(strtok(buffer, ":"));
         strcpy(path, strtok(0, ":"));
-
-        printf("%ld - %s\n", res, path);
 
         // Aggiunge i risultati alla lista
         add_res(res, path);
@@ -182,17 +152,8 @@ void collector_main() {
 
     // Chiusura del socket server
     close(server_socket);
-    //unlink(SOCKET_PATH);
     V_PRINT_MSG(COLLECTOR, "chiusura");
 
-    // Rimane attivo per testare i segnali
-    /*
-    int i = 0;
-    while (++i < 5) {
-        printf("Collector in esecuzione\n");
-        sleep(1);
-    }
-    */
     exit(EXIT_SUCCESS);
 }
 
@@ -209,19 +170,16 @@ void mask_signals_collector() {
     
     ec_not(pthread_sigmask(SIG_BLOCK, &set, NULL), 0, "Collector set sigmask");
 
-    // Ignoro SIGPIPE
+    // Ignora SIGPIPE
     struct sigaction saction;
     memset(&saction, 0, sizeof(saction));
     saction.sa_handler = SIG_IGN;
     ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Collector sigaction ignore");
-
 }
 
 // Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
 int add_res(long sum, char *path) {
-    //printf("ADD_RES cerca LOCK\n");
     pthread_mutex_lock(&result_mutex);
-    //printf("ADD_RES prende LOCK\n");
     result_t *iter = result_list;
     result_t *new;
 
@@ -245,7 +203,7 @@ int add_res(long sum, char *path) {
         iter->next = new;
     }
     pthread_mutex_unlock(&result_mutex);
-    //printf("ADD_RES rilascia LOCK\n");
+
     return 0;
 }
 
@@ -259,23 +217,19 @@ void printlist() {
 	result_t *iter = result_list;
 
 	while(iter != NULL) {
-        //printf("ciclo di stampa %d\n", i++);
 		fprintf(stdout, "%ld %s\n", iter->sum, iter->path);
 		iter=iter->next;
 	}
 	fflush(stdout);
 }
 
+// Funzione lanciata dal thread di stampa
 static void *printerThread (void *arg) {
     while(!stop_printer) {
-        //printf("Test di stampa del printer %d\n", ++i);
         if(result_list != NULL) {
-            //printf("printer cerca LOCK\n");
             pthread_mutex_lock(&result_mutex);
-            //printf("printer prende LOCK\n");
             printlist();
             pthread_mutex_unlock(&result_mutex);
-            //printf("printer rilascia LOCK\n");
         }
         sleepTime(1000);
     }
