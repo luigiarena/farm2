@@ -3,9 +3,11 @@
     Autore: Luigi Arena matricola 422353
 
     File: worker_thread.c
-    Descrizione: 
+    File sorgente che descrive il funzionamento dei worker thread. Si avviano,
+    estraggono dati dalla coda, calcolano il risultati sui file e lo inviano
+    a Collector tramite connessione socket. Terminano in maniera autonoma
+    grazie al funzionamento della coda.
 */
-
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -26,7 +28,6 @@
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t usr2_signal;
 
-extern volatile sig_atomic_t worker_control;
 extern volatile sig_atomic_t no_more_files;
 
 extern pthread_mutex_t socket_mtx;
@@ -35,26 +36,29 @@ extern int verbose;
 
 extern coda_t *coda;
 
-int trova_id(pool_t *p, pthread_t tid);
-
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
+    // Maschera i segnali
     mask_signals_worker();
 
+    // Converte il suo argomento di input in un puntatore ad una struttura pool
     pool_t *pool = (pool_t *) arg;
 
+    // Chiede il sui Id thread
     pthread_t tid = pthread_self();
-
     V_PRINT_ARG(WORKER, "(%ld) partito", tid);
 
-    // Connessione al server
+    // Definisce le variabili per la connessione al server
     int client_socket;
     struct sockaddr_un server_addr;
     char message[BUF_MAX_SIZE];
 
-    char *path = malloc(PATH_MAX_LEN);
+    // Inizia il suo ciclo
+    char *path;
     long res = 0;
-    while (!worker_control) {
+    while (1) {
+        // Ogni Worker avverte la variazione del segnale usr2
+        // E il primo che lo riceve lo gestisce, auto eliminandosi
         if (usr2_signal != 0) {
             if (rem_worker(pool, tid) == 0) {
                 usr2_signal--;
@@ -64,6 +68,10 @@ void* worker_thread(void* arg) {
             }
         }
 
+        // Effettua un controllo sulla quantità di task
+        // e aspetta se è solo vuota la lista, altrimenti
+        // se non ci sono più file in arrivo manda un
+        // segnale di sblocco per chi è in attesa
         pthread_mutex_lock(&coda->mtx);
         while (coda->counter == 0) {
             if (no_more_files) {
@@ -74,6 +82,7 @@ void* worker_thread(void* arg) {
             pthread_cond_wait(&coda->not_empty, &coda->mtx);
         }
 
+        // Estrae il prossimo path dalla coda
         path = pop_coda(coda);
 
         if (path == NULL) {
@@ -84,12 +93,13 @@ void* worker_thread(void* arg) {
         pthread_cond_signal(&coda->not_full);
         pthread_mutex_unlock(&coda->mtx);
 
-        if (strcmp(path, "")!=0 && strcmp(path, "END")!=0) {
+        // Controlla che il path sia valido
+        if (strcmp(path, "")!=0) {
 
             // Calcola il risultato del file
             res = calc_res(path);
 
-            // Invio messaggio a Collector
+            // Invia messaggio a Collector
 
             // Creazione del socket
             if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
@@ -122,11 +132,13 @@ void* worker_thread(void* arg) {
         } else break;
     }
 
+    // Il Worker termina il suo ciclo
     V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
     
     pthread_exit(NULL);
 }
 
+// Maschera i segnali
 void mask_signals_worker() {
     sigset_t set;
     ec_val(sigemptyset(&set), -1, "Worker sigemptyset mask");
@@ -147,6 +159,8 @@ void mask_signals_worker() {
     ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Worker sigaction ignore");
 }
 
+// Calcola un long, risultato della sommatoria dei numeri contenuti nel file, moltiplicati
+// per la loro posizione di riga all'interno del stesso
 long calc_res (char *path_file){
     FILE *fp;
     // Apre il file
@@ -179,15 +193,4 @@ long calc_res (char *path_file){
         result+=(i*vals[i]);
     }
     return result;
-}
-
-int trova_id(pool_t *p, pthread_t tid) {
-    worker_t *w = malloc(sizeof(worker_t));
-
-    int id = 0;
-    pthread_mutex_lock(&p->mtx);
-    if (w != NULL) id = w->id;
-    pthread_mutex_unlock(&p->mtx);
-
-    return id;
 }

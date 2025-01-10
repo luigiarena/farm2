@@ -3,12 +3,14 @@
     Autore: Luigi Arena matricola 422353
 
     File: utility.h
-    Descrizione: 
+    Header di Utility contiene tante macro utili alla stampa di debug
+    e costanti comuni, oltre alla funzine sleepTime. 
+    Utility è usato da quasi tutti i file
 */
 #ifndef UTILITY_H
 #define UTILITY_H
 
-// Colori per shell
+// Colori per la stampa su shell
 #define ANSI_COLOR_GREY     "\x1b[30;1m"
 #define ANSI_COLOR_RED      "\x1b[31m"
 #define ANSI_COLOR_GREEN    "\x1b[32m"

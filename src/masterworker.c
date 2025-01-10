@@ -3,9 +3,9 @@
     Autore: Luigi Arena matricola 422353
 
     File: masterworker.c
-    Descrizione: 
+    Sorgente del file masterworker, descrive la sua funzione, quella che gestisce gran parte
+    del programma. Contiene anche le funzione che masterworker usa nel suo ciclo vitale
 */
-
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -24,22 +24,25 @@
 #include "pool_manager.h"
 #include "utility.h"
 
-#define MAX_NCONN                      10
+#define MAX_NCONN                      10   // Numero massimo di tentativi di connessione
 
 extern int verbose;
 
+// Variabili atomiche per la gestione dei segnali ricevuti
 volatile sig_atomic_t stop_signal = 0;
 volatile sig_atomic_t usr1_signal = 0;
 volatile sig_atomic_t usr2_signal = 0;
 
+// Variabile che indica quando sono finiti i file da aggiungere alla coda
 volatile sig_atomic_t no_more_files = 0;
 
-// Coda Concorrente condivisa
+// Coda Concorrente condivisa, è globale per tutti i thread generati da Masterthread
 coda_t *coda;
 
 static void *handler_signals(void *arg);
 void save_nworkers(int n, char *file);
 
+// Funzione main di Masterworker
 void masterWorker_main(master_data_t *data) {
     V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
 
@@ -64,13 +67,20 @@ void masterWorker_main(master_data_t *data) {
     // Applico sigmask
     ec_not(pthread_sigmask(SIG_BLOCK, &mask, NULL), 0, "Masterworker set sigmask");
 
+
     // Creo un thread detached che gestisce i segnali
     pthread_t handlerThread;
-    ec_not(pthread_create(&handlerThread, NULL, &handler_signals, &mask), 0, "Masterworker pthread_create");
-    ec_not(pthread_detach(handlerThread), 0, "Masterworker pthread_detach");
+    if (pthread_create(&handlerThread, NULL, handler_signals, &mask) != 0) {
+        perror("Masterworker -> errore durante la creazione di handler thread");
+        exit(EXIT_FAILURE);
+    }
+    if (pthread_detach(handlerThread) != 0) {
+        perror("Masterworker -> errore detached su handler thread");
+        exit(EXIT_FAILURE);
+    }
+
 
     // Creazione socket
-
     int server_socket;
     struct sockaddr_un server_addr;
     char buffer[BUF_MAX_SIZE];
@@ -94,7 +104,7 @@ void masterWorker_main(master_data_t *data) {
     // Crea il pool dei Worker
     pool_t *pool = init_pool(data->nthread);
 
-    // Avvia il thread che si occupererà di riempire la coda
+    // Avvia il thread Explorer che si occupererà di riempire la coda
     V_PRINT_MSG(MASTERWORKER, "avviato explorer per il riempimento della coda");
 
     pthread_t explorer_tid;
@@ -144,13 +154,16 @@ void masterWorker_main(master_data_t *data) {
 
     V_PRINT_MSG(MASTERWORKER, "chiusura");
 
+    // Libera la memoria della struttura dei dati di Masterworker
+    free_data(data);
+
     return;
 }
 
 // Funzione per la gestione dei segnali in MasterWorker
 static void *handler_signals(void *arg) {
     int sig;
-    while(!stop_signal) {
+    while(1) {
         if (sigwait((sigset_t *)arg, &sig) != 0) {
             perror("fatal error: sigwait");
             return NULL;
@@ -174,23 +187,20 @@ static void *handler_signals(void *arg) {
                 break;
             case SIGUSR1:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGUSR1\n", 35);
-                //pthread_mutex_lock(&usr_counter_mutex);
                 usr1_signal++;
-                //pthread_mutex_unlock(&usr_counter_mutex);
                 break;
             case SIGUSR2:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGUSR2\n", 35);
-                //pthread_mutex_lock(&usr_counter_mutex);
                 usr2_signal++;
-                //pthread_mutex_unlock(&usr_counter_mutex);
                 break;
             default:
                 break;
         }
     }
-    return NULL;
+    pthread_exit(NULL);
 }
 
+// Salva il numero n dentro file, creandolo se non esiste e sovrascrivendolo nel caso
 void save_nworkers(int n, char *file) {
     //printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", n);
     FILE *fp = fopen(file, "w");
@@ -199,4 +209,14 @@ void save_nworkers(int n, char *file) {
     fclose(fp);
 
     return;
+}
+
+// Libera lo spazio dedicato alla struttura Data
+void free_data(master_data_t *data) {
+    for (int i=0; i<data->num_file; i++) {
+        free(data->file_list[i]);
+    }
+    free(data->file_list);
+    free(data->dname);
+    free(data);
 }

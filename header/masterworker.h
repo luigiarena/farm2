@@ -3,7 +3,10 @@
     Autore: Luigi Arena matricola 422353
 
     File: masterworker.h
-    Descrizione: 
+    Header del file masterworker. Descrive la struttura per il salvataggio dei
+    dati necessari al funzionamento del programma e la funzione che farm usa
+    per avviare masterworker - sono comunque lo stesso processo, al contrario
+    di collector. Contiene anche la funzione per eliminare la struttura dei dati
 */
 #ifndef MASTERWORKER_H
 #define MASTERWORKER_H
@@ -18,5 +21,6 @@ typedef struct master_data {
 } master_data_t;
 
 void masterWorker_main(master_data_t *data);
+void free_data(master_data_t *data);
 
 #endif

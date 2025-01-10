@@ -3,7 +3,9 @@
     Autore: Luigi Arena matricola 422353
 
     File: farm.c
-    Descrizione: 
+    Contiene la funzione main del programma, esegue la scansione
+    degli argomenti e delle opzioni ricevute in input facendo 
+    poi partire sia masterworker che collector
 */
 #define _POSIX_C_SOURCE 200809L
 
@@ -39,7 +41,7 @@ int main(int argc, char *argv[]){
     // Analizza i parametri dati in input
     master_data_t * data = read_opt(argc, argv);
 
-    // Stampa la struttura dei dati di input
+    // Stampa la struttura dei dati di input (con verbose)
     if (verbose) {
         printf("MASTER DATA\n");
         printf("  nthread: %d\n", data->nthread);
@@ -109,7 +111,6 @@ master_data_t *read_opt(int argc, char *argv[]) {
     data->nthread = NTHREAD_DEFAULT;
     data->qlen = QLEN_DEFAULT;
     data->tdelay = TDELAY_DEFAULT;
-    data->dname = NULL;
     data->num_file = 0;
 
     // Strutture di appoggio per creare la lista dei file/argomento
@@ -188,13 +189,13 @@ master_data_t *read_opt(int argc, char *argv[]) {
                         // Elimina il carattere '/' alla fine del path se è stato inserito
                         if(opt[strlen(opt)-1] == '/') opt[strlen(opt)-1] = '\0';
 
-                        data->dname = malloc(PATH_MAX_LEN);
-                        strncpy(data->dname, opt, strlen(opt));
+                        data->dname = strndup(opt, sizeof(opt));
                         DIR *dir = opendir(data->dname);
                         if (!dir) {
-                            fprintf(stderr, "La directory inserita non e' valida: %s\n", data->dname);
+                            fprintf(stderr, "La directory inserita non e' valida: %s\n", opt);
                             exit(EXIT_FAILURE);
                         }
+                        closedir(dir);
                         break;
                     default:
                         fprintf(stderr, "Opzione non riconosciuta: %s\n", opt);
@@ -221,9 +222,9 @@ master_data_t *read_opt(int argc, char *argv[]) {
     // Inizializza la lista dei file passati come argomenti
     data->file_list = malloc(sizeof(char *)*data->num_file);
     index = 0;
-
+    // Rimpie la lista con gli argomenti inseriti
     while (index < data->num_file) {
-        data->file_list[index] = malloc(sizeof(char)*PATH_MAX_LEN);
+        data->file_list[index] = malloc(PATH_MAX_LEN);
         strncpy(data->file_list[index], argv[file_temp[index]], PATH_MAX_LEN);
         index++;
     }

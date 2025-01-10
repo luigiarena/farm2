@@ -3,8 +3,10 @@
     Autore: Luigi Arena matricola 422353
 
     File: explorer.c
-    Descrizione: 
+    Contiene la funzione che gestisce l'esplorazione dei file e cartelle in input e 
+    se sono validi li inserisce nella coda concorrente
 */
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +29,7 @@ extern coda_t *coda;
 void fill_coda(coda_t *coda, master_data_t *data);
 void explore_dir(coda_t *coda, long tdelay, char *dname);
 
+// Questa funzione viene chiamata dal thread dedicato che genera Masterworker
 void *explorer (void *arg) {
     master_data_t *data = (master_data_t *) arg;
     
@@ -46,7 +49,6 @@ void *explorer (void *arg) {
 
 // Funzione che esplora la directory, saltando file ., .. e nascosti
 void fill_coda(coda_t *coda, master_data_t *data) {
-    //printf("Esplorazione iniziata\n");
     int index = 0;
     FILE *new_file;
 
@@ -69,7 +71,7 @@ void fill_coda(coda_t *coda, master_data_t *data) {
             pthread_cond_wait(&coda->not_full, &coda->mtx);
         }
 
-        push_coda(coda, data->file_list[index], 0);
+        push_coda(coda, data->file_list[index]);
 
         pthread_cond_signal(&coda->not_empty);
         pthread_mutex_unlock(&coda->mtx);
@@ -80,9 +82,11 @@ void fill_coda(coda_t *coda, master_data_t *data) {
     // Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
-    //printf("Esplorazione finita\n");
     return;
 }
+
+// Funzione che esplora una cartella e tutte le sottocartelle alla ricerca di file da aggiungere
+// alla coda
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
     struct dirent *entry;
     struct stat file_stat;
@@ -123,7 +127,7 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
                 pthread_cond_wait(&coda->not_full, &coda->mtx);
             }
 
-            push_coda(coda, full_path, 0);
+            push_coda(coda, full_path);
 
             pthread_cond_signal(&coda->not_empty);
             pthread_mutex_unlock(&coda->mtx);

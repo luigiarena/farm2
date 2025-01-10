@@ -5,7 +5,6 @@
     File: collector.c
     Descrizione: 
 */
-
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -24,30 +23,39 @@
 #include "collector.h"
 #include "utility.h"
 
-pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 extern int verbose;
 
+// Mutex necessario per l'accesso alla struttura dei risultati
+pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Variabili globali per gestire la terminazione dei cicli di Collectore e del suo thread figlio
 volatile sig_atomic_t stop_collector = 0;
 volatile sig_atomic_t stop_printer = 0;
 
 // Struttura contenente i risultati ricevuti da Collector
 typedef struct result {
 	long sum;
-	char path[PATH_MAX_LEN];
+	//char path[PATH_MAX_LEN];
+    char *path;
 	struct result *next;
 } result_t;
 
+// Dichiarazione globale della lista dei risultati
 result_t *result_list = NULL;
 
 static void *printerThread (void *arg);
 
+void mask_signals_collector();
+int add_res(long sum, char *path);
+void free_res();
+void printlist();
+
+// Funzione main di Collector 
 void collector_main() {
     // Maschera i segnali per il processo Collector
     mask_signals_collector();
 
-    long res;
-    char *path = malloc(sizeof(char)*PATH_MAX_LEN);
+    // Variabili utili alla connessione server
     char buffer[BUF_MAX_SIZE];
 
     int server_socket, client_socket;
@@ -89,13 +97,12 @@ void collector_main() {
     result_list = NULL;
 
     // Avvia il thread printer per la stampa parziale dei risultati
-    pthread_t printerId;
-    if (pthread_create(&printerId, NULL, printerThread, NULL) != 0) {
+    pthread_t printer_tid;
+    if (pthread_create(&printer_tid, NULL, printerThread, NULL) != 0) {
         perror("Collector -> errore durante la creazione di printer");
-        stop_printer = 1;
-        stop_collector = 1;
         exit(EXIT_FAILURE);
-    } else V_PRINT_MSG(COLLECTOR, "printer avviato");
+    }
+    V_PRINT_MSG(COLLECTOR, "printer avviato");
 
     // Collector entra in un loop di ascolto
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
@@ -109,6 +116,7 @@ void collector_main() {
             exit(EXIT_FAILURE);
         }
 
+        // Resetta il buffer
         memset(buffer, 0, BUF_MAX_SIZE);
         // Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
@@ -122,26 +130,20 @@ void collector_main() {
         buffer[nread] = '\0';  
 
         if (strcmp(buffer, "STOP") == 0) {
-            // Invio la risposta al client
+            // Invia la risposta al client
             stop_collector = 1;
             stop_printer = 1;
-            // Devo fare join printer
-
-
-
-
 
             V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
             printlist();
-            free_res(result_list);
             V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
             write(client_socket, ack, 4);
         } 
 
-        // Fa il parsing del messaggio ricevuto per salvare i valori
-        res = atol(strtok(buffer, ":"));
-        strcpy(path, strtok(0, ":"));
+        // Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
+        long res = atol(strtok(buffer, ":"));
+        char *path = strtok(0, ":");
 
         // Aggiunge i risultati alla lista
         add_res(res, path);
@@ -154,9 +156,19 @@ void collector_main() {
     close(server_socket);
     V_PRINT_MSG(COLLECTOR, "chiusura");
 
+    // Esegue la join di printer
+    if (pthread_join(printer_tid, NULL)) {
+        fprintf(stderr, "MasterWorker -> errore join explorer\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Libera lo spazio della lista dei risultati
+    free_res(result_list);
+
     exit(EXIT_SUCCESS);
 }
 
+// Maschera i segnali di collector
 void mask_signals_collector() {
     sigset_t set;
     ec_val(sigemptyset(&set), -1, "Collector sigemptyset mask");
@@ -188,6 +200,7 @@ int add_res(long sum, char *path) {
 
     new->next = NULL;
     new->sum = sum;
+    new->path = malloc(PATH_MAX_LEN);
     strncpy(new->path, path, PATH_MAX_LEN);
 
     if(iter == NULL) {
@@ -207,9 +220,12 @@ int add_res(long sum, char *path) {
     return 0;
 }
 
+// Libera lo spazio dedicato alla lista dei risultati
 void free_res() {
     if(result_list->next != NULL) free_res(result_list->next);
+    free(result_list->path);
     free(result_list);
+    return;
 }
 
 // Stampa lista dei risultati

@@ -3,8 +3,9 @@
     Autore: Luigi Arena matricola 422353
 
     File: coda.c
-    Descrizione: 
+    Contiene le funzioni per la gestione della coda concorrente
 */
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,28 +15,27 @@
 #include "coda.h"
 #include "utility.h"
 
+// Inizializza la struttura della coda concorrente e ne ritorna il puntatore
 coda_t *init_coda(int size) {
-    coda_t *c = malloc(sizeof(coda_t));
-    pthread_mutex_init(&c->mtx, NULL);
-    pthread_cond_init(&c->not_full, NULL);
-    pthread_cond_init(&c->not_empty, NULL);
-    c->end = 0;
-    c->size = size;
-    c->counter = 0;
-    c->tot = 0;
-    c->list = NULL;
-    return c;
+    coda_t *coda = malloc(sizeof(coda_t));
+    ec_val(coda, NULL, "errore allocazione coda");
+    pthread_mutex_init(&coda->mtx, NULL);           // mutex della coda
+    pthread_cond_init(&coda->not_full, NULL);       // var cond per l'attesa su coda piena
+    pthread_cond_init(&coda->not_empty, NULL);      // var cond per l'attesa su coda vuota
+    coda->size = size;                              // lunghezza massima della coda
+    coda->counter = 0;                              // contatore dei task della coda
+    coda->tot = 0;                                  // numero totale di task aggiunti
+    coda->list = NULL;                              // puntatore alla lista dei task
+    return coda;
 }
 
-
-void push_coda(coda_t *coda, char *path, int end) {
+// Inserisce un task che contiene path in fondo alla coda, politica FIFO
+void push_coda(coda_t *coda, char *path) {
+    if (path == NULL) return;
     task_t *push = (task_t *)malloc(sizeof(task_t));
-    push->end = end;
+    ec_val(push, NULL, "errore allocazione task");
     push->next = NULL;
-    push->path = malloc(sizeof(char)*PATH_MAX_LEN);
-    strncpy(push->path, path, PATH_MAX_LEN);
-//printf("PUSH 6\n");
-    push->next = NULL;
+    push->path = strndup(path, PATH_MAX_LEN);
     if (coda->list == NULL) {
         coda->list = push;
     } else {
@@ -45,40 +45,47 @@ void push_coda(coda_t *coda, char *path, int end) {
         }
         temp->next = push;
     }
-//printf("PUSH 12\n");
     coda->counter++;
     coda->tot++;
-//printf("PUSH 14\n");
+
     return;
 }
 
+// Estrae il path del task in cima alla coda, eliminandolo da essa
 char *pop_coda(coda_t *coda) {
-//printf("POP 1\n");
     if (coda->list == NULL) return NULL;
-//printf("POP 3\n");
+
     task_t *temp = coda->list;
     coda->list = coda->list->next;
     char *path = temp->path;
     free(temp);
     coda->counter--;
 
-//printf("POP 5\n");
     return path;
 }
 
-void free_coda(coda_t *coda) {
-    while (coda->list != NULL) {
-        task_t *temp = coda->list;
-        coda->list = coda->list->next;
-        free(temp->path);
-        free(temp);
+// Libera la memoria dedicata alla lista dei task
+void free_task_list(task_t *task) {
+    if (task == NULL) return;
+    else {
+        while (task->next != NULL) free_task_list(task->next);
+        free(task->path);
+        free(task);
     }
+    return;
+}
+
+// Libera la memoria dedicata alla coda
+void free_coda(coda_t *coda) {
+    free_task_list(coda->list);
     pthread_mutex_destroy(&coda->mtx);
     pthread_cond_destroy(&coda->not_full);
     pthread_cond_destroy(&coda->not_empty);
     free(coda);
+    return;
 }
 
+// Stampa la stato attuale della coda
 void print_coda(coda_t *coda) {
     task_t *iter = coda->list;
     printf("Stampa contenuto della coda concorrente\n");
