@@ -50,6 +50,19 @@ int add_res(long sum, char *path);
 void free_res();
 void printlist();
 
+/*
+void conta_res() {
+    int i=0;
+    result_t *iter = result_list;
+    while (iter != NULL) {
+        iter = iter->next;
+        i++;
+    } 
+    printf("Numero di res: %d\n", i);
+    return;
+}
+*/
+
 // Funzione main di Collector 
 void collector_main() {
     // Maschera i segnali per il processo Collector
@@ -139,6 +152,10 @@ void collector_main() {
             V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
             write(client_socket, ack, 4);
+
+            // Esce dal ciclo
+            close(client_socket);
+            break;
         } 
 
         // Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
@@ -221,10 +238,12 @@ int add_res(long sum, char *path) {
 }
 
 // Libera lo spazio dedicato alla lista dei risultati
-void free_res() {
-    if(result_list->next != NULL) free_res(result_list->next);
+void free_res(result_t *result_list) {
+    if (result_list == NULL) return;
+    free_res(result_list->next);
     free(result_list->path);
     free(result_list);
+
     return;
 }
 

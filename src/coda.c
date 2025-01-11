@@ -31,6 +31,7 @@ coda_t *init_coda(int size) {
 
 // Inserisce un task che contiene path in fondo alla coda, politica FIFO
 void push_coda(coda_t *coda, char *path) {
+    //printf("push in azione\n");
     if (path == NULL) return;
     task_t *push = (task_t *)malloc(sizeof(task_t));
     ec_val(push, NULL, "errore allocazione task");

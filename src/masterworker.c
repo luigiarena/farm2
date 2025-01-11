@@ -67,19 +67,18 @@ void masterWorker_main(master_data_t *data) {
     // Applico sigmask
     ec_not(pthread_sigmask(SIG_BLOCK, &mask, NULL), 0, "Masterworker set sigmask");
 
-
     // Creo un thread detached che gestisce i segnali
-    pthread_t handlerThread;
-    if (pthread_create(&handlerThread, NULL, handler_signals, &mask) != 0) {
+    pthread_t handler_tid;
+    if (pthread_create(&handler_tid, NULL, handler_signals, &mask) != 0) {
         perror("Masterworker -> errore durante la creazione di handler thread");
         exit(EXIT_FAILURE);
     }
-    if (pthread_detach(handlerThread) != 0) {
+    
+    if (pthread_detach(handler_tid) != 0) {
         perror("Masterworker -> errore detached su handler thread");
         exit(EXIT_FAILURE);
     }
-
-
+    
     // Creazione socket
     int server_socket;
     struct sockaddr_un server_addr;
@@ -125,7 +124,14 @@ void masterWorker_main(master_data_t *data) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
+/*
+    pthread_kill(handler_tid, SIGTERM);
 
+    if (pthread_join(handler_tid, NULL)) {
+        fprintf(stderr, "MasterWorker -> errore join explorer\n");
+        exit(EXIT_FAILURE);
+    }
+*/
     V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
 
     // Invia messaggio di terminazione a Collector
@@ -162,8 +168,9 @@ void masterWorker_main(master_data_t *data) {
 
 // Funzione per la gestione dei segnali in MasterWorker
 static void *handler_signals(void *arg) {
+
     int sig;
-    while(1) {
+    while(!stop_signal) {
         if (sigwait((sigset_t *)arg, &sig) != 0) {
             perror("fatal error: sigwait");
             return NULL;
@@ -179,7 +186,8 @@ static void *handler_signals(void *arg) {
                 break;
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
-                stop_signal = 1;
+                //stop_signal = 1;
+                usr1_signal++;
                 break;
             case SIGTERM:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
@@ -197,12 +205,13 @@ static void *handler_signals(void *arg) {
                 break;
         }
     }
+
     pthread_exit(NULL);
 }
 
 // Salva il numero n dentro file, creandolo se non esiste e sovrascrivendolo nel caso
 void save_nworkers(int n, char *file) {
-    //printf("Stampa su file numero di Thread Worker alla chiusura: %d\n", n);
+
     FILE *fp = fopen(file, "w");
     ec_val(fp, NULL, "Errore apertura file nworker");
     fprintf(fp, "%d\n", n);
@@ -213,6 +222,7 @@ void save_nworkers(int n, char *file) {
 
 // Libera lo spazio dedicato alla struttura Data
 void free_data(master_data_t *data) {
+
     for (int i=0; i<data->num_file; i++) {
         free(data->file_list[i]);
     }
