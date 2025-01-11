@@ -86,7 +86,7 @@ void* worker_thread(void* arg) {
         path = pop_coda(coda);
 
         if (path == NULL) {
-            pthread_mutex_unlock(&coda->mtx);
+//            pthread_mutex_unlock(&coda->mtx);
             break;
         }
 
