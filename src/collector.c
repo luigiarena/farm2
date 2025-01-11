@@ -47,7 +47,7 @@ static void *printerThread (void *arg);
 
 void mask_signals_collector();
 int add_res(long sum, char *path);
-void free_res();
+void free_res(result_t * result_list);
 void printlist();
 
 /*
