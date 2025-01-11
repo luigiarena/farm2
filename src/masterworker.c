@@ -222,11 +222,12 @@ void save_nworkers(int n, char *file) {
 
 // Libera lo spazio dedicato alla struttura Data
 void free_data(master_data_t *data) {
-
+    if (data == NULL) return;
     for (int i=0; i<data->num_file; i++) {
         free(data->file_list[i]);
     }
     free(data->file_list);
     free(data->dname);
     free(data);
+    return;
 }
