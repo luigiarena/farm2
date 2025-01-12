@@ -128,6 +128,7 @@ void* worker_thread(void* arg) {
                 pthread_exit(NULL);
             }
 
+            free(path);
             close(client_socket);
         } else break;
     }

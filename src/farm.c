@@ -221,6 +221,10 @@ master_data_t *read_opt(int argc, char *argv[]) {
 
     // Inizializza la lista dei file passati come argomenti
     data->file_list = malloc(sizeof(char *)*data->num_file);
+    if (data->file_list == NULL) {
+        perror("Errore allocazione data->file_list");
+        exit(EXIT_FAILURE);
+    }
     index = 0;
     // Rimpie la lista con gli argomenti inseriti
     while (index < data->num_file) {

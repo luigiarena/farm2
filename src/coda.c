@@ -35,6 +35,7 @@ void push_coda(coda_t *coda, char *path) {
     if (path == NULL) return;
     task_t *push = (task_t *)malloc(sizeof(task_t));
     ec_val(push, NULL, "errore allocazione task");
+
     push->next = NULL;
     push->path = strndup(path, PATH_MAX_LEN);
     if (coda->list == NULL) {
@@ -67,9 +68,12 @@ char *pop_coda(coda_t *coda) {
 
 // Libera la memoria dedicata alla lista dei task
 void free_task_list(task_t *task) {
+    printf("Pulizia task list -> null\n");
     if (task == NULL) return;
     else {
-        while (task->next != NULL) free_task_list(task->next);
+        //while (task->next != NULL) 
+        printf("Pulizia task list -> iterazione\n");
+        free_task_list(task->next);
         free(task->path);
         free(task);
     }
@@ -78,6 +82,7 @@ void free_task_list(task_t *task) {
 
 // Libera la memoria dedicata alla coda
 void free_coda(coda_t *coda) {
+    printf("Pulizia coda\n");
     free_task_list(coda->list);
     pthread_mutex_destroy(&coda->mtx);
     pthread_cond_destroy(&coda->not_full);

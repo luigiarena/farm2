@@ -56,21 +56,21 @@ int pool_manager(pool_t *pool) {
     int active_workers = 0;
     V_PRINT_MSG(MASTERWORKER, "pool manager attende chiusura dei worker thread")
     // Fa join dei worker thread ancora attivi, mentre li distrugge e li conta
-    while (pool->list != NULL) {
-        if (pthread_join(pool->list->tid, NULL)) {
-            fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", pool->list->id);
+    while (temp != NULL) {
+        if (pthread_join(temp->tid, NULL)) {
+            fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", temp->id);
             exit(EXIT_FAILURE);
         }
-        temp = pool->list;
-        pool->list = pool->list->next;
-        free(temp);
+        //temp = pool->list;
+        temp = temp->next;
+        //free(temp);
 
         active_workers++;
     }
 
     // Libera la memoria di pool e coda
-    free_coda(coda);
     free_pool(pool);
+    free_coda(coda);
 
     V_PRINT_MSG(MASTERWORKER, "terminazione di pool manager")
 
@@ -138,9 +138,12 @@ int rem_worker(pool_t *p, pthread_t tid) {
 
 // Libera la memoria della lista dei worker
 void free_worker_list(worker_t *w) {
+    printf("Pulizia worker list -> null\n");
     if (w == NULL) return;
     else {
-        while (w->next != NULL) free_worker_list(w->next);
+        //while (w->next != NULL) 
+        printf("Pulizia worker list -> iterazione\n");
+        free_worker_list(w->next);
         free(w);
     }
     return;
@@ -148,6 +151,7 @@ void free_worker_list(worker_t *w) {
 
 // Libera la memoria del pool
 void free_pool(pool_t *p) {
+    printf("Pulizia pool\n");
     free_worker_list(p->list);
     pthread_mutex_destroy(&p->mtx);
     free(p);

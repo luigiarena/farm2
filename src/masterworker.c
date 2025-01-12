@@ -205,7 +205,7 @@ static void *handler_signals(void *arg) {
                 break;
         }
     }
-    printf("handler termina\n");
+    //printf("handler termina\n");
     pthread_exit(NULL);
 }
 
@@ -227,7 +227,7 @@ void free_data(master_data_t *data) {
         free(data->file_list[i]);
 
     }
-    //free(data->file_list);
+    free(data->file_list);
     free(data->dname);
     free(data);
     return;
