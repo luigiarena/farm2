@@ -124,9 +124,9 @@ void masterWorker_main(master_data_t *data) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
-/*
-    pthread_kill(handler_tid, SIGTERM);
 
+    pthread_kill(handler_tid, SIGTERM);
+/*
     if (pthread_join(handler_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
@@ -205,7 +205,7 @@ static void *handler_signals(void *arg) {
                 break;
         }
     }
-
+    printf("handler termina\n");
     pthread_exit(NULL);
 }
 
