@@ -36,6 +36,8 @@ extern int verbose;
 
 extern coda_t *coda;
 
+int find_id(pool_t *pool, pthread_t tid);
+
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
     // Maschera i segnali
@@ -44,9 +46,13 @@ void* worker_thread(void* arg) {
     // Converte il suo argomento di input in un puntatore ad una struttura pool
     pool_t *pool = (pool_t *) arg;
 
-    // Chiede il sui Id thread
+    // Chiede il suo Id thread
     pthread_t tid = pthread_self();
-    V_PRINT_ARG(WORKER, "(%ld) partito", tid);
+    //V_PRINT_ARG(WORKER, "(%ld) partito", tid);
+
+    // Cerca il suo Id incrementale
+    int id = find_id(pool, tid);
+    V_PRINT_ARG(WORKER, "(%d) partito", id);
 
     // Definisce le variabili per la connessione al server
     int client_socket;
@@ -134,7 +140,7 @@ void* worker_thread(void* arg) {
     }
 
     // Il Worker termina il suo ciclo
-    V_PRINT_ARG(WORKER, "(%ld) terminato", tid);
+    V_PRINT_ARG(WORKER, "(%d) terminato", id);
     
     pthread_exit(NULL);
 }
@@ -194,4 +200,15 @@ long calc_res (char *path_file){
         result+=(i*vals[i]);
     }
     return result;
+}
+
+// Trova l'id incrementale del worker
+int find_id(pool_t *pool, pthread_t tid) {
+    int id = 0;
+    pthread_mutex_lock(&pool->mtx);
+    worker_t *w = pool->list;
+    while (w != NULL && w->tid != tid) w = w->next;
+    if (w != NULL) id = w->id;
+    pthread_mutex_unlock(&pool->mtx);
+    return id;
 }
