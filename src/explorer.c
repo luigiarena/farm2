@@ -51,9 +51,24 @@ void *explorer (void *arg) {
 void fill_coda(coda_t *coda, master_data_t *data) {
     int index = 0;
     FILE *new_file;
+    struct stat file_stat;
 
     // Inserisce prima la lista dei file passati come argomenti
     while (!stop_signal && index < data->num_file) {
+        // Ottiene informazioni sul file
+        if (stat(data->file_list[index], &file_stat) == -1) {
+            fprintf(stderr, "Errore nell'ottenere informazioni sul file: %s\n", data->file_list[index]);
+            index++;
+            continue;
+        }
+        
+        // Se il file non è regolare lo salta
+        if (!S_ISREG(file_stat.st_mode)) {
+            index++;
+            continue;
+        }
+
+        // Controlla se il file è binario
         new_file = fopen(data->file_list[index], "rb");
         if (new_file == NULL) {
             fprintf(stderr, "Errore apertura file: %s\n", data->file_list[index]);
