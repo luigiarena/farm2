@@ -40,8 +40,6 @@ int find_id(pool_t *pool, pthread_t tid);
 
 // Funzione eseguita da ogni worker thread
 void* worker_thread(void* arg) {
-    // Maschera i segnali
-    mask_signals_worker();
 
     // Converte il suo argomento di input in un puntatore ad una struttura pool
     pool_t *pool = (pool_t *) arg;
@@ -143,27 +141,6 @@ void* worker_thread(void* arg) {
     V_PRINT_ARG(WORKER, "(%d) terminato", id);
     
     pthread_exit(NULL);
-}
-
-// Maschera i segnali
-void mask_signals_worker() {
-    sigset_t set;
-    ec_val(sigemptyset(&set), -1, "Worker sigemptyset mask");
-
-    ec_val(sigaddset(&set, SIGHUP), -1, "Worker sigaddset sighup");
-    ec_val(sigaddset(&set, SIGINT), -1, "Worker sigaddset sigint");
-    ec_val(sigaddset(&set, SIGQUIT), -1, "Worker sigaddset sigquit");
-    ec_val(sigaddset(&set, SIGTERM), -1, "Worker sigaddset sigterm");
-    ec_val(sigaddset(&set, SIGUSR1), -1, "Worker sigaddset sigurs1");
-    ec_val(sigaddset(&set, SIGUSR2), -1, "Worker sigaddset sigusr2");
-    
-    ec_not(pthread_sigmask(SIG_BLOCK, &set, NULL), 0, "Worker set sigmask");
-
-    // Ignora SIGPIPE
-    struct sigaction saction;
-    memset(&saction, 0, sizeof(saction));
-    saction.sa_handler = SIG_IGN;
-    ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Worker sigaction ignore");
 }
 
 // Calcola un long, risultato della sommatoria dei numeri contenuti nel file, moltiplicati
