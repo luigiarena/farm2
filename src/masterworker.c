@@ -95,7 +95,7 @@ void masterWorker_main(master_data_t *data) {
     server_addr.sun_family = AF_UNIX;
     strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
 
-    V_PRINT_MSG(MASTERWORKER, " fine configurazione connessione")
+    V_PRINT_MSG(MASTERWORKER, "fine configurazione connessione")
 
     // Crea la coda concorrente
     coda = init_coda(data->qlen);
@@ -125,7 +125,7 @@ void masterWorker_main(master_data_t *data) {
         exit(EXIT_FAILURE);
     }
 
-    pthread_kill(handler_tid, SIGTERM);
+    if (!stop_signal) pthread_kill(handler_tid, SIGTERM);
 /*
     if (pthread_join(handler_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
@@ -187,7 +187,7 @@ static void *handler_signals(void *arg) {
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
                 //stop_signal = 1;
-                usr1_signal++;
+                usr1_signal--;
                 break;
             case SIGTERM:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
