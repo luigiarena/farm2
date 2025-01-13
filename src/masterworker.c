@@ -125,7 +125,11 @@ void masterWorker_main(master_data_t *data) {
         exit(EXIT_FAILURE);
     }
 
-    if (!stop_signal) pthread_kill(handler_tid, SIGTERM);
+    //printf("Provo segnale stop: %d\n", stop_signal);
+    if (!stop_signal) {
+        pthread_kill(handler_tid, SIGTERM);
+        printf("segnale lanciato\n");
+    }
 /*
     if (pthread_join(handler_tid, NULL)) {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
@@ -186,8 +190,7 @@ static void *handler_signals(void *arg) {
                 break;
             case SIGQUIT:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGQUIT\n", 35);
-                //stop_signal = 1;
-                usr1_signal--;
+                stop_signal = 1;
                 break;
             case SIGTERM:
                 if(verbose==1) write(1, "\nMasterWorker -> ricevuto SIGTERM\n", 35);
@@ -205,6 +208,7 @@ static void *handler_signals(void *arg) {
                 break;
         }
     }
+    //printf("Handler esce\n");
     pthread_exit(NULL);
 }
 

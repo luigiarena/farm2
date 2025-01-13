@@ -39,9 +39,9 @@ int pool_manager(pool_t *pool) {
     }
 
     // Pool manager va in loop aspettando le richieste di aggiuta worker e la fine dei file in input
-    while(!stop_signal) {
-        if (no_more_files) stop_signal = 1;
-
+    //while(!stop_signal) {
+    //    if (no_more_files) stop_signal = 1;
+    while(!no_more_files) {
         if (usr1_signal != 0) {
             add_worker(pool);
             usr1_signal--;
