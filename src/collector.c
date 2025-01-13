@@ -50,19 +50,6 @@ int add_res(long sum, char *path);
 void free_res(result_t * result_list);
 void printlist();
 
-/*
-void conta_res() {
-    int i=0;
-    result_t *iter = result_list;
-    while (iter != NULL) {
-        iter = iter->next;
-        i++;
-    } 
-    printf("Numero di res: %d\n", i);
-    return;
-}
-*/
-
 // Funzione main di Collector 
 void collector_main() {
     // Maschera i segnali per il processo Collector
@@ -182,7 +169,7 @@ void collector_main() {
     // Libera lo spazio della lista dei risultati
     free_res(result_list);
 
-    exit(EXIT_SUCCESS);
+    return;
 }
 
 // Maschera i segnali di collector

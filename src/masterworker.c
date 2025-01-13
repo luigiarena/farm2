@@ -161,7 +161,7 @@ void masterWorker_main(master_data_t *data) {
     V_PRINT_MSG(MASTERWORKER, "chiusura");
 
     // Libera la memoria della struttura dei dati di Masterworker
-    free_data(data);
+    //free_data(data);
 
     return;
 }
@@ -205,7 +205,6 @@ static void *handler_signals(void *arg) {
                 break;
         }
     }
-    //printf("handler termina\n");
     pthread_exit(NULL);
 }
 
@@ -223,9 +222,9 @@ void save_nworkers(int n, char *file) {
 // Libera lo spazio dedicato alla struttura Data
 void free_data(master_data_t *data) {
     if (data == NULL) return;
+    //printf("free di data null\n");
     for (int i=0; i<data->num_file; i++) {
         free(data->file_list[i]);
-
     }
     free(data->file_list);
     free(data->dname);
