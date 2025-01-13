@@ -134,8 +134,9 @@ void collector_main() {
             stop_collector = 1;
             stop_printer = 1;
 
-            V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
-            printlist();
+            //V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
+            //printlist();
+
             V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
             char ack[256] = "ack";
             write(client_socket, ack, 4);
@@ -165,6 +166,11 @@ void collector_main() {
         fprintf(stderr, "MasterWorker -> errore join explorer\n");
         exit(EXIT_FAILURE);
     }
+
+    V_PRINT_MSG(COLLECTOR, "Stampa finale dei risultati");
+    V_PRINT_TXT("-------------------------------------------");
+    printlist();
+    V_PRINT_TXT("-------------------------------------------");
 
     // Libera lo spazio della lista dei risultati
     free_res(result_list);

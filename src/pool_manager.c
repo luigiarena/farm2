@@ -138,11 +138,9 @@ int rem_worker(pool_t *p, pthread_t tid) {
 
 // Libera la memoria della lista dei worker
 void free_worker_list(worker_t *w) {
-    printf("Pulizia worker list -> null\n");
     if (w == NULL) return;
     else {
         //while (w->next != NULL) 
-        printf("Pulizia worker list -> iterazione\n");
         free_worker_list(w->next);
         free(w);
     }
@@ -151,7 +149,6 @@ void free_worker_list(worker_t *w) {
 
 // Libera la memoria del pool
 void free_pool(pool_t *p) {
-    printf("Pulizia pool\n");
     free_worker_list(p->list);
     pthread_mutex_destroy(&p->mtx);
     free(p);

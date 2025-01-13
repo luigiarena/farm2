@@ -171,7 +171,7 @@ int main(int argc, char *argv[]){
 
     // Stampa la struttura dei dati di input (con verbose)
     if (verbose) {
-        printf("MASTER DATA\n");
+        printf(ANSI_COLOR_RED "MASTER DATA\n" ANSI_COLOR_RESET);
         printf("    nthread: %d\n", data->nthread);
         printf("       qlen: %d\n", data->qlen);
         printf("     tdelay: %ld\n", data->tdelay);
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]){
         printf("   num_file: %d\n", data->num_file);
         printf("  file_list:\n");
         for(int i=0; i<data->num_file; i++) {
-            printf("    -file %d: %s\n", i+1, data->file_list[i]);
+            printf("%11d) %s\n", i+1, data->file_list[i]);
         }
         printf("\n");
     }
