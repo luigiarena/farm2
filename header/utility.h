@@ -27,8 +27,9 @@
 #define WORKER              ANSI_COLOR_CYAN    "WORKER      " ANSI_COLOR_RESET
 
 // Macro per la stampa verbose (-v)
-#define V_PRINT_MSG(caller, msg)        if(verbose)fprintf(stderr,caller " -> " msg "\n");
-#define V_PRINT_ARG(caller, msg,...)    if(verbose)fprintf(stderr,caller " -> " msg "\n",__VA_ARGS__);
+#define V_PRINT_TXT(text)               if(verbose)fprintf(stdout,text "\n");
+#define V_PRINT_MSG(caller, msg)        if(verbose)fprintf(stdout,caller " -> " msg "\n");
+#define V_PRINT_ARG(caller, msg,...)    if(verbose)fprintf(stdout,caller " -> " msg "\n",__VA_ARGS__);
 
 // Macro per la cattura di eccezioni == val
 #define ec_val(res,val,msg)  if((res)==val) {perror(msg); exit(EXIT_FAILURE);}
