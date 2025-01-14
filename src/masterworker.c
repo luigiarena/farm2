@@ -36,6 +36,10 @@ volatile sig_atomic_t usr2_signal = 0;
 // Variabile che indica quando sono finiti i file da aggiungere alla coda
 volatile sig_atomic_t no_more_files = 0;
 
+// Mutex per la gestione condivisa della socket tra i thread
+int server_socket;
+pthread_mutex_t socket_mtx;
+
 // Coda Concorrente condivisa, è globale per tutti i thread generati da Masterthread
 coda_t *coda;
 
@@ -80,9 +84,9 @@ void masterWorker_main(master_data_t *data) {
     }
     
     // Creazione socket
-    int server_socket;
+    //int server_socket;
     struct sockaddr_un server_addr;
-    char buffer[BUF_MAX_SIZE];
+    //char buffer[BUF_MAX_SIZE];
 
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
@@ -95,6 +99,52 @@ void masterWorker_main(master_data_t *data) {
     server_addr.sun_family = AF_UNIX;
     strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
 
+    V_PRINT_MSG(MASTERWORKER, "tentativo di stabilire una connessione");
+    // Connessione al server (collector)
+    int tentativi=0;
+    while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)) {
+        perror("MasterWorker error -> connessione fallita");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+        tentativi++;
+        sleepTime(1000);
+    }
+
+    // Inizializzazione del mutex della socket
+    pthread_mutex_init(&socket_mtx, NULL);
+
+    //printf("Valore socket: %d\n", server_socket);
+
+/*
+    long x = 1111;
+    memset(buffer, 0, BUF_MAX_SIZE);
+    snprintf(buffer, sizeof(buffer), "%ld:%s", x, "TEST 1");
+    pthread_mutex_lock(&socket_mtx);
+    if (send(server_socket, buffer, strlen(buffer) + 1, 0) == -1) {
+        perror("send");
+        pthread_mutex_unlock(&socket_mtx);
+    }
+    memset(buffer, 0, BUF_MAX_SIZE);
+    read(server_socket, buffer, BUF_MAX_SIZE);
+    V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
+    pthread_mutex_unlock(&socket_mtx);
+    //printf("Messaggio 1 trasferito\n");
+
+    //sleep(1);
+    memset(buffer, 0, BUF_MAX_SIZE);
+    snprintf(buffer, sizeof(buffer), "%ld:%s", x, "TEST 2");
+    pthread_mutex_lock(&socket_mtx);
+    if (send(server_socket, buffer, strlen(buffer) + 1, 0) == -1) {
+        perror("send");
+        pthread_mutex_unlock(&socket_mtx);
+    }
+    //printf("Messaggio 2 trasferito\n");
+    memset(buffer, 0, BUF_MAX_SIZE);
+    read(server_socket, buffer, BUF_MAX_SIZE);
+    V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
+    pthread_mutex_unlock(&socket_mtx);
+    //sleep(1);
+*/
     V_PRINT_MSG(MASTERWORKER, "fine configurazione connessione")
 
     // Crea la coda concorrente
@@ -125,39 +175,26 @@ void masterWorker_main(master_data_t *data) {
         exit(EXIT_FAILURE);
     }
 
+    V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
+    
     //printf("Provo segnale stop: %d\n", stop_signal);
     if (!stop_signal) {
         pthread_kill(handler_tid, SIGTERM);
-        printf("segnale lanciato\n");
+        //printf("segnale lanciato\n");
     }
-/*
-    if (pthread_join(handler_tid, NULL)) {
-        fprintf(stderr, "MasterWorker -> errore join explorer\n");
-        exit(EXIT_FAILURE);
-    }
-*/
-    V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
+
+    V_PRINT_MSG(MASTERWORKER, "handler è stato terminato");
 
     // Invia messaggio di terminazione a Collector
-
-    V_PRINT_MSG(MASTERWORKER, "tentativo di connessione");
-    // Connessione al server (collector)
-    int tentativi=0;
-    while (tentativi<MAX_NCONN && (connect(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)) {
-        perror("MasterWorker error -> connessione fallita");
-        close(server_socket);
-        exit(EXIT_FAILURE);
-        tentativi++;
-        sleep(1);
-    }
+/*
     send(server_socket, "STOP", strlen("STOP"), 0);
     memset(buffer, 0, BUF_MAX_SIZE);
     read(server_socket, buffer, BUF_MAX_SIZE);
     V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
-
+*/
     // Chiusura connessione e cancellazione del socket
     close(server_socket);
-    unlink(SOCKET_PATH);
+    pthread_mutex_destroy(&socket_mtx);
 
     // Salvo su file il numero di thread worker attivi
     save_nworkers(active_workers, "nworkeratexit.txt");

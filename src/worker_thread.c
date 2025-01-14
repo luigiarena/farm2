@@ -30,6 +30,8 @@ extern volatile sig_atomic_t usr2_signal;
 
 extern volatile sig_atomic_t no_more_files;
 
+// Mutex per la gestione condivisa della socket tra i thread
+extern int server_socket;
 extern pthread_mutex_t socket_mtx;
 
 extern int verbose;
@@ -53,8 +55,9 @@ void* worker_thread(void* arg) {
     V_PRINT_ARG(WORKER, "(%d) partito", id);
 
     // Definisce le variabili per la connessione al server
-    int client_socket;
-    struct sockaddr_un server_addr;
+    int client_socket = server_socket;
+    //printf("Worker %d con socket: %d\n", id, client_socket);
+    //struct sockaddr_un server_addr;
     char message[BUF_MAX_SIZE];
 
     // Inizia il suo ciclo
@@ -98,42 +101,29 @@ void* worker_thread(void* arg) {
         pthread_mutex_unlock(&coda->mtx);
 
         // Controlla che il path sia valido
-        if (strcmp(path, "")!=0) {
+        if (strcmp(path, "") != 0) {
 
             // Calcola il risultato del file
             res = calc_res(path);
 
             // Invia messaggio a Collector
+            pthread_mutex_lock(&socket_mtx);
 
-            // Creazione del socket
-            if ((client_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-                perror("Errore nella creazione del socket client");
-                pthread_exit(NULL);
-            }
-
-            // Configurazione del socket
-            memset(&server_addr, 0, sizeof(server_addr));
-            server_addr.sun_family = AF_UNIX;
-            strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
-
-            // Connessione al server
-            if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-                perror("Errore nella connessione al server");
-                close(client_socket);
-                pthread_exit(NULL);
-            }
-
-            // Invio del messaggio
             memset(message, 0, BUF_MAX_SIZE);
             snprintf(message, sizeof(message), "%ld:%s", res, path);
-            if (send(client_socket, message, strlen(message), 0) == -1) {
+            if (send(client_socket, message, strlen(message)+1, 0) == -1) {
                 perror("Errore nell'invio del messaggio");
-                close(client_socket);
-                pthread_exit(NULL);
+                pthread_mutex_unlock(&socket_mtx);
+                //close(client_socket);
+                //pthread_exit(NULL);
             }
-
+            memset(message, 0, BUF_MAX_SIZE);
+            read(server_socket, message, BUF_MAX_SIZE);
+            V_PRINT_ARG(WORKER, "(%d) ha ricevuto %s", id, message);
+            pthread_mutex_unlock(&socket_mtx);
+        //sleep(1);
             free(path);
-            close(client_socket);
+            //close(client_socket);
         } else break;
     }
 

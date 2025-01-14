@@ -52,18 +52,17 @@ void printlist();
 
 // Funzione main di Collector 
 void collector_main() {
+    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
+
     // Maschera i segnali per il processo Collector
     mask_signals_collector();
 
     // Variabili utili alla connessione server
-    char buffer[BUF_MAX_SIZE];
-
     int server_socket, client_socket;
-    struct sockaddr_un server_addr, client_addr;
-    socklen_t client_len;
+    struct sockaddr_un server_addr; // client_addr;
+    //socklen_t client_len;
+    char buffer[BUF_MAX_SIZE];
     int nread;
-
-    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
     // Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
@@ -106,60 +105,53 @@ void collector_main() {
 
     // Collector entra in un loop di ascolto
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
-    while (!stop_collector) {
-        // Accetta connessioni
-        client_len = sizeof(client_addr);
-        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
-        if (client_socket == -1) {
-            perror("Collector error -> accept connessione");
-            close(server_socket);
-            exit(EXIT_FAILURE);
-        }
 
+    // Accetta connessione
+    client_socket = accept(server_socket, NULL, NULL);
+    if (client_socket == -1) {
+        perror("Collector error -> accept connessione");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+
+    while (!stop_collector) {
         // Resetta il buffer
         memset(buffer, 0, BUF_MAX_SIZE);
         // Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
-        if (nread < 0) {
+        //printf("Lettura nread: %d\n", nread);
+        if (nread > 0) {
+            // Assicura la terminazione della stringa
+            //buffer[nread] = '\0';
+
+            // Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
+            long res = atol(strtok(buffer, ":"));
+            char *path = strtok(0, ":");
+
+            // Aggiunge i risultati alla lista
+            add_res(res, path);
+            //printf("Aggiunta: %ld e %s\n", res, path);
+
+            char ack[4] = "ACK";
+            if (send(client_socket, ack, 4, 0) == -1) {
+                perror("Errore nell'invio del messaggio");
+            }
+            continue;
+        } else if (nread == -1) {
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
-            close(client_socket);
+            continue;
+        } else if (nread == 0) {
+            V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di stop");
+            stop_collector = 1;
+            stop_printer = 1;
             continue;
         }
 
-        // Assicura la terminazione della stringa
-        buffer[nread] = '\0';  
-
-        if (strcmp(buffer, "STOP") == 0) {
-            // Invia la risposta al client
-            stop_collector = 1;
-            stop_printer = 1;
-
-            //V_PRINT_MSG(COLLECTOR, "ultima stampa dei risultati");
-            //printlist();
-
-            V_PRINT_MSG(COLLECTOR, "invio ack a Masterworker per stop");
-            char ack[256] = "ack";
-            write(client_socket, ack, 4);
-
-            // Esce dal ciclo
-            close(client_socket);
-            break;
-        } 
-
-        // Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
-        long res = atol(strtok(buffer, ":"));
-        char *path = strtok(0, ":");
-
-        // Aggiunge i risultati alla lista
-        add_res(res, path);
-
-        // Chiude la connessione con il client
-        close(client_socket);
     }
 
     // Chiusura del socket server
+    close(client_socket);
     close(server_socket);
-    V_PRINT_MSG(COLLECTOR, "chiusura");
 
     // Esegue la join di printer
     if (pthread_join(printer_tid, NULL)) {
@@ -174,6 +166,9 @@ void collector_main() {
 
     // Libera lo spazio della lista dei risultati
     free_res(result_list);
+
+    V_PRINT_MSG(COLLECTOR, "chiusura");
+    unlink(SOCKET_PATH);
 
     return;
 }
