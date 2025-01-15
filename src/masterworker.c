@@ -40,8 +40,9 @@ volatile sig_atomic_t no_more_files = 0;
 int server_socket;
 pthread_mutex_t socket_mtx;
 
-// Coda Concorrente condivisa, è globale per tutti i thread generati da Masterthread
+// Coda Concorrente e Pool globali, sono condivisi tra tutti i thread generati da Masterthread
 coda_t *coda;
+pool_t *pool;
 
 static void *handler_signals(void *arg);
 void save_nworkers(int n, char *file);
@@ -113,45 +114,13 @@ void masterWorker_main(master_data_t *data) {
     // Inizializzazione del mutex della socket
     pthread_mutex_init(&socket_mtx, NULL);
 
-    //printf("Valore socket: %d\n", server_socket);
-
-/*
-    long x = 1111;
-    memset(buffer, 0, BUF_MAX_SIZE);
-    snprintf(buffer, sizeof(buffer), "%ld:%s", x, "TEST 1");
-    pthread_mutex_lock(&socket_mtx);
-    if (send(server_socket, buffer, strlen(buffer) + 1, 0) == -1) {
-        perror("send");
-        pthread_mutex_unlock(&socket_mtx);
-    }
-    memset(buffer, 0, BUF_MAX_SIZE);
-    read(server_socket, buffer, BUF_MAX_SIZE);
-    V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
-    pthread_mutex_unlock(&socket_mtx);
-    //printf("Messaggio 1 trasferito\n");
-
-    //sleep(1);
-    memset(buffer, 0, BUF_MAX_SIZE);
-    snprintf(buffer, sizeof(buffer), "%ld:%s", x, "TEST 2");
-    pthread_mutex_lock(&socket_mtx);
-    if (send(server_socket, buffer, strlen(buffer) + 1, 0) == -1) {
-        perror("send");
-        pthread_mutex_unlock(&socket_mtx);
-    }
-    //printf("Messaggio 2 trasferito\n");
-    memset(buffer, 0, BUF_MAX_SIZE);
-    read(server_socket, buffer, BUF_MAX_SIZE);
-    V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
-    pthread_mutex_unlock(&socket_mtx);
-    //sleep(1);
-*/
     V_PRINT_MSG(MASTERWORKER, "fine configurazione connessione")
 
     // Crea la coda concorrente
     coda = init_coda(data->qlen);
 
     // Crea il pool dei Worker
-    pool_t *pool = init_pool(data->nthread);
+    pool = init_pool(data->nthread);
 
     // Avvia il thread Explorer che si occupererà di riempire la coda
     V_PRINT_MSG(MASTERWORKER, "avviato explorer per il riempimento della coda");
@@ -165,7 +134,7 @@ void masterWorker_main(master_data_t *data) {
     V_PRINT_ARG(MASTERWORKER, "thread explorer avviato: %ld\n", explorer_tid);
 
     // Avvia funzione che gestisce il pool e ritorna il numero di worker attivi
-    int active_workers = pool_manager(pool);
+    int active_workers = pool_manager();
 
     V_PRINT_MSG(MASTERWORKER, "attende il join con explorer");
 
@@ -192,6 +161,13 @@ void masterWorker_main(master_data_t *data) {
     read(server_socket, buffer, BUF_MAX_SIZE);
     V_PRINT_ARG(MASTERWORKER, "ha ricevuto %s", buffer);
 */
+    pthread_mutex_lock(&socket_mtx);
+    if (send(server_socket, "", 0, 0) == -1) {
+        perror("invio chiusura connessione");
+        pthread_mutex_unlock(&socket_mtx);
+    }
+    pthread_mutex_unlock(&socket_mtx);
+
     // Chiusura connessione e cancellazione del socket
     close(server_socket);
     pthread_mutex_destroy(&socket_mtx);

@@ -24,7 +24,7 @@ typedef struct pool {
     worker_t *list;                 // Puntatore alla lista del pool
 } pool_t;
 
-int pool_manager(pool_t *pool);
+int pool_manager();
 
 pool_t *init_pool(int n);
 void add_worker(pool_t *p);

@@ -37,6 +37,7 @@ extern pthread_mutex_t socket_mtx;
 extern int verbose;
 
 extern coda_t *coda;
+extern pool_t *pool;
 
 int find_id(pool_t *pool, pthread_t tid);
 
@@ -44,14 +45,17 @@ int find_id(pool_t *pool, pthread_t tid);
 void* worker_thread(void* arg) {
 
     // Converte il suo argomento di input in un puntatore ad una struttura pool
-    pool_t *pool = (pool_t *) arg;
+    //pool_t *pool = (pool_t *) arg;
+
+    // Converte il suo argomento in un int id;
+    int id = *(int *) arg;
 
     // Chiede il suo Id thread
     pthread_t tid = pthread_self();
     //V_PRINT_ARG(WORKER, "(%ld) partito", tid);
 
     // Cerca il suo Id incrementale
-    int id = find_id(pool, tid);
+    //int id = find_id(pool, tid);
     V_PRINT_ARG(WORKER, "(%d) partito", id);
 
     // Definisce le variabili per la connessione al server
@@ -114,16 +118,15 @@ void* worker_thread(void* arg) {
             if (send(client_socket, message, strlen(message)+1, 0) == -1) {
                 perror("Errore nell'invio del messaggio");
                 pthread_mutex_unlock(&socket_mtx);
-                //close(client_socket);
-                //pthread_exit(NULL);
             }
+            V_PRINT_ARG(WORKER, "(%d) ha inviato %s", id, message);
             memset(message, 0, BUF_MAX_SIZE);
             read(server_socket, message, BUF_MAX_SIZE);
             V_PRINT_ARG(WORKER, "(%d) ha ricevuto %s", id, message);
+
             pthread_mutex_unlock(&socket_mtx);
-        //sleep(1);
+
             free(path);
-            //close(client_socket);
         } else break;
     }
 

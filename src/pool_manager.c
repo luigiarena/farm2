@@ -27,9 +27,10 @@ extern volatile sig_atomic_t usr1_signal;
 extern volatile sig_atomic_t no_more_files;
 
 extern coda_t *coda;
+extern pool_t *pool;
 
 // Funzione che gestisce il pool, chiama da Masterworker
-int pool_manager(pool_t *pool) {
+int pool_manager() {
     V_PRINT_MSG(MASTERWORKER, "avvio di pool manager\n");
 
     // Crea i worker thread iniziali
@@ -98,7 +99,7 @@ void add_worker(pool_t *p) {
     w->next = p->list;
     w->id = (p->id_counter)+1;
 
-    if (pthread_create(&w->tid, NULL, &worker_thread, p) != 0) {
+    if (pthread_create(&w->tid, NULL, &worker_thread, &w->id) != 0) {
         fprintf(stderr, "errore pthread_create worker: %d\n", w->id);
         pthread_mutex_unlock(&p->mtx);
         exit(EXIT_FAILURE);
@@ -139,11 +140,8 @@ int rem_worker(pool_t *p, pthread_t tid) {
 // Libera la memoria della lista dei worker
 void free_worker_list(worker_t *w) {
     if (w == NULL) return;
-    else {
-        //while (w->next != NULL) 
-        free_worker_list(w->next);
-        free(w);
-    }
+    free_worker_list(w->next);
+    free(w);
     return;
 }
 
