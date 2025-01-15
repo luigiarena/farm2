@@ -12,16 +12,21 @@
 #include <time.h> 
 #include "utility.h"
 
-// Variabile globale utile per gestire lo stato verbose tra le opzioni del programma
+//  Variabile globale utile per gestire lo stato verbose tra le opzioni del programma
 int verbose;
 
-// Funzione per l'attesa in millisecondi, sfrutta nanosleep
+/*
+    Funzione per l'attesa in millisecondi, sfrutta nanosleep
+    @param    milliseconds  intero lungo che indica la quantità di tempo in millisecondi
+    @return   0             se ha successo
+              -1            altrimenti
+*/
 int sleepTime(long miliseconds)
 {
    struct timespec rem;
    struct timespec req = {
-       (int)(miliseconds / 1000),     /* secs (Must be Non-Negative) */ 
-       (miliseconds % 1000) * 1000000 /* nano (Must be in range of 0 to 999999999) */ 
+       (int)(miliseconds / 1000),      //  secs (Deve essere non negativo)
+       (miliseconds % 1000) * 1000000  //  nano (Deve essere nel range tra 0 e 999999999)
    };
 
    return nanosleep(&req , &rem);

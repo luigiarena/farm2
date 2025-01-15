@@ -25,77 +25,79 @@
 
 extern int verbose;
 
-// Mutex necessario per l'accesso alla struttura dei risultati
+//  Mutex necessario per l'accesso alla struttura dei risultati
 pthread_mutex_t result_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Variabili globali per gestire la terminazione dei cicli di Collectore e del suo thread figlio
+//  Variabili globali per gestire la terminazione dei cicli di Collector e del suo thread figlio
 volatile sig_atomic_t stop_collector = 0;
 volatile sig_atomic_t stop_printer = 0;
 
-// Struttura contenente i risultati ricevuti da Collector
+//  Struttura contenente i risultati ricevuti dai worker
 typedef struct result {
 	long sum;
-	//char path[PATH_MAX_LEN];
     char *path;
 	struct result *next;
 } result_t;
 
-// Dichiarazione globale della lista dei risultati
+//  Dichiarazione globale di un puntatore alla lista dei risultati
 result_t *result_list = NULL;
 
+//  Firma della funzione lanciata dal thread printer
 static void *printerThread (void *arg);
 
+//  Firma delle funzioni utilizzate internamente da collector
 void mask_signals_collector();
 int add_res(long sum, char *path);
 void free_res(result_t * result_list);
 void printlist();
 
-// Funzione main di Collector 
+/*
+    Funzione main di Collector
+*/
 void collector_main() {
+
+    //  Collector stampa il proprio PID per segnalare il suo avvio corretto
     V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
-    // Maschera i segnali per il processo Collector
+    //  Maschera i segnali
     mask_signals_collector();
 
-    // Variabili utili alla connessione server
+    //  Variabili utili alla connessione server
     int server_socket, client_socket;
-    struct sockaddr_un server_addr; // client_addr;
-    //socklen_t client_len;
+    struct sockaddr_un server_addr;
     char buffer[BUF_MAX_SIZE];
     int nread;
 
-    // Creazione socket
+    //  Creazione socket
     server_socket = socket(AF_LOCAL, SOCK_STREAM, 0);
     if (server_socket == -1) {
         perror("Collector error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "socket creato");
 
-    // Configurazione socket
+    //  Configurazione socket
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
     strncpy(server_addr.sun_path, SOCKET_PATH, sizeof(server_addr.sun_path) - 1);
     
-    // Rimuove il vecchio socket se esiste
+    //  Rimuove il vecchio socket se esiste
     unlink(SOCKET_PATH);
     
-    // Binding
+    //  Binding
     if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "bind socket");
 
-    // Listen
+    //  Listen
     if (listen(server_socket, 1) == -1                          ) {
         perror("Collector error -> listen connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
     } else V_PRINT_MSG(COLLECTOR, "listen socket");
 
-    result_list = NULL;
-
-    // Avvia il thread printer per la stampa parziale dei risultati
+    //  Avvia il thread printer per la stampa parziale dei risultati
     pthread_t printer_tid;
     if (pthread_create(&printer_tid, NULL, printerThread, NULL) != 0) {
         perror("Collector -> errore durante la creazione di printer");
@@ -103,10 +105,10 @@ void collector_main() {
     }
     V_PRINT_MSG(COLLECTOR, "printer avviato");
 
-    // Collector entra in un loop di ascolto
+    //  Collector entra in un loop di ascolto
     V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
-    // Accetta connessione
+    //  Accetta connessione
     client_socket = accept(server_socket, NULL, NULL);
     if (client_socket == -1) {
         perror("Collector error -> accept connessione");
@@ -115,32 +117,34 @@ void collector_main() {
     }
 
     while (!stop_collector) {
-        // Resetta il buffer
+        //  Resetta il buffer
         memset(buffer, 0, BUF_MAX_SIZE);
-        // Ricezione del messaggio
+        //  Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
-        //printf("Lettura nread: %d\n", nread);
         if (nread > 0) {
-            // Assicura la terminazione della stringa
-            //buffer[nread] = '\0';
+            //  Se il messaggio è stato ricevuto correttamente
 
-            // Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
+            //  Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
             long res = atol(strtok(buffer, ":"));
             char *path = strtok(0, ":");
 
-            // Aggiunge i risultati alla lista
+            //  Aggiunge i risultati alla lista
             add_res(res, path);
-            //printf("Aggiunta: %ld e %s\n", res, path);
 
+            //  Manda un messaggio di conferma al client in attesa di risposta
             char ack[4] = "ACK";
             if (send(client_socket, ack, 4, 0) == -1) {
                 perror("Errore nell'invio del messaggio");
             }
             continue;
         } else if (nread == -1) {
+            //  Se c'è stato un errore nella ricezione del messaggio
+
             fprintf(stderr, "Collector error -> read del messaggio, errno: %d\n", errno);
             continue;
         } else if (nread == 0) {
+            //  Se è stato ricevuto un messaggio vuoto Collector termina
+
             V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di stop");
             stop_collector = 1;
             stop_printer = 1;
@@ -149,13 +153,13 @@ void collector_main() {
 
     }
 
-    // Chiusura del socket server
+    //  Chiusura dei socket
     close(client_socket);
     close(server_socket);
 
-    // Esegue la join di printer
+    //  Esegue la join di printer
     if (pthread_join(printer_tid, NULL)) {
-        fprintf(stderr, "MasterWorker -> errore join explorer\n");
+        perror("Collector -> errore join printer");
         exit(EXIT_FAILURE);
     }
 
@@ -164,7 +168,7 @@ void collector_main() {
     printlist();
     V_PRINT_TXT("-------------------------------------------");
 
-    // Libera lo spazio della lista dei risultati
+    //  Libera lo spazio della lista dei risultati
     free_res(result_list);
 
     V_PRINT_MSG(COLLECTOR, "chiusura");
@@ -173,8 +177,11 @@ void collector_main() {
     return;
 }
 
-// Maschera i segnali di collector
+/*
+    Maschera i segnali di collector
+*/
 void mask_signals_collector() {
+
     sigset_t set;
     ec_val(sigemptyset(&set), -1, "Collector sigemptyset mask");
 
@@ -192,10 +199,18 @@ void mask_signals_collector() {
     memset(&saction, 0, sizeof(saction));
     saction.sa_handler = SIG_IGN;
     ec_val(sigaction(SIGPIPE, &saction, NULL), -1, "Collector sigaction ignore");
+
 }
 
-// Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei sum
+/*
+    Aggiunge un nuovo elemento alla lista dei risultati, rispettando l'ordine numerico dei long salvati
+    @param    sum   valore calcolato sul file
+              path  posizione del file
+    @return   0     se il risultato è stato aggiunto correttamente
+              -1    altrimenti
+*/
 int add_res(long sum, char *path) {
+
     pthread_mutex_lock(&result_mutex);
     result_t *iter = result_list;
     result_t *new;
@@ -225,8 +240,11 @@ int add_res(long sum, char *path) {
     return 0;
 }
 
-// Libera lo spazio dedicato alla lista dei risultati
+/*
+    Libera lo spazio allocato dalla lista dei risultati
+*/
 void free_res(result_t *result_list) {
+
     if (result_list == NULL) return;
     free_res(result_list->next);
     free(result_list->path);
@@ -235,7 +253,9 @@ void free_res(result_t *result_list) {
     return;
 }
 
-// Stampa lista dei risultati
+/*
+    Stampa lista dei risultati
+*/
 void printlist() {
 	result_t *iter = result_list;
 
@@ -246,7 +266,10 @@ void printlist() {
 	fflush(stdout);
 }
 
-// Funzione lanciata dal thread di stampa
+/*
+    Funzione lanciata dal thread di stampa
+    Stampa la lista dei risultati ogni secondo
+*/
 static void *printerThread (void *arg) {
     while(!stop_printer) {
         if(result_list != NULL) {

@@ -11,8 +11,4 @@
 
 void* worker_thread(void* arg);
 
-void mask_signals_worker();
-
-long calc_res (char *path_file);
-
 #endif

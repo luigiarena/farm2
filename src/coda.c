@@ -15,23 +15,30 @@
 #include "coda.h"
 #include "utility.h"
 
-// Inizializza la struttura della coda concorrente e ne ritorna il puntatore
+/*
+    Inizializza la struttura della coda concorrente
+    @param    size  Lunghezza massima della coda
+    @return   coda  Puntatore alla coda creata
+*/
 coda_t *init_coda(int size) {
     coda_t *coda = malloc(sizeof(coda_t));
     ec_val(coda, NULL, "errore allocazione coda");
-    pthread_mutex_init(&coda->mtx, NULL);           // mutex della coda
-    pthread_cond_init(&coda->not_full, NULL);       // var cond per l'attesa su coda piena
-    pthread_cond_init(&coda->not_empty, NULL);      // var cond per l'attesa su coda vuota
-    coda->size = size;                              // lunghezza massima della coda
-    coda->counter = 0;                              // contatore dei task della coda
-    coda->tot = 0;                                  // numero totale di task aggiunti
-    coda->list = NULL;                              // puntatore alla lista dei task
+    pthread_mutex_init(&coda->mtx, NULL);
+    pthread_cond_init(&coda->not_full, NULL);
+    pthread_cond_init(&coda->not_empty, NULL);
+    coda->size = size;
+    coda->counter = 0;
+    coda->tot = 0;
+    coda->list = NULL;
     return coda;
 }
 
-// Inserisce un task che contiene path in fondo alla coda, politica FIFO
+/*
+    Inserisce un task che contiene la stringa path in fondo alla coda, politica FIFO
+    @param    coda  Puntatore alla coda
+              path  Stringa da inserire nel task
+*/
 void push_coda(coda_t *coda, char *path) {
-    //printf("push in azione\n");
     if (path == NULL) return;
     task_t *push = (task_t *)malloc(sizeof(task_t));
     ec_val(push, NULL, "errore allocazione task");
@@ -53,45 +60,60 @@ void push_coda(coda_t *coda, char *path) {
     return;
 }
 
-// Estrae il path del task in cima alla coda, eliminandolo da essa
+/*
+    Estrae e restituisce il path del task in cima ad una coda, eliminandolo da essa
+    @param    coda  Puntatore alla coda
+    @return   path  La stringa contenente il path
+              NULL  Se la coda è vuota
+*/ 
 char *pop_coda(coda_t *coda) {
     if (coda->list == NULL) return NULL;
 
     task_t *temp = coda->list;
     coda->list = coda->list->next;
     char *path = temp->path;
+    //  Elimina lo spazio allocato per il task estratto
     free(temp);
     coda->counter--;
 
     return path;
 }
 
-// Libera la memoria dedicata alla lista dei task
+/*
+    Libera la memoria dedicata alla lista dei task
+    @param    task  Puntatore alla lista dei task
+*/
 void free_task_list(task_t *task) {
     if (task == NULL) return;
-    else {
-        //while (task->next != NULL) 
-        free_task_list(task->next);
-        free(task->path);
-        free(task);
-    }
+    free_task_list(task->next);
+    free(task->path);
+    free(task);
+
     return;
 }
 
-// Libera la memoria dedicata alla coda
+/*
+    Libera la memoria dedicata alla coda
+    @param    coda  Puntatore alla coda
+*/
 void free_coda(coda_t *coda) {
     free_task_list(coda->list);
     pthread_mutex_destroy(&coda->mtx);
     pthread_cond_destroy(&coda->not_full);
     pthread_cond_destroy(&coda->not_empty);
     free(coda);
+
     return;
 }
 
-// Stampa la stato attuale della coda
+/*
+    Stampa la stato attuale della coda
+    @param    coda  Puntatore alla coda
+*/
 void print_coda(coda_t *coda) {
     task_t *iter = coda->list;
-    printf("Stampa contenuto della coda concorrente\n");
+    fprintf(stdout, "Stampa contenuto della coda concorrente\n");
+
     pthread_mutex_lock(&coda->mtx);
     int i = 0;
     while (iter != NULL) {
@@ -100,5 +122,6 @@ void print_coda(coda_t *coda) {
         i++;
     }
     pthread_mutex_unlock(&coda->mtx);
+
     return;
 }

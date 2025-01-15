@@ -29,19 +29,25 @@ extern volatile sig_atomic_t no_more_files;
 extern coda_t *coda;
 extern pool_t *pool;
 
-// Funzione che gestisce il pool, chiama da Masterworker
+/*
+    Funzione che gestisce il pool chiamata da Masterworker
+    Crea la lista dei worker thread attivi, ne aggiunge di nuovi se riceve il
+    segnale usr1, attende la terminazione dei worker con lo svuotamento della
+    coda, libera infine lo spazio allocato per coda e pool
+    @return    active_workers  numero di worker attivi alla chiusura del pool    
+*/
 int pool_manager() {
-    V_PRINT_MSG(MASTERWORKER, "avvio di pool manager\n");
 
-    // Crea i worker thread iniziali
+    V_PRINT_MSG(MASTERWORKER, "avvio di pool manager\n");
+    int active_workers = 0;
+
+    //  Crea i worker thread iniziali
     for (int i = 0; i < pool->nthread; i++) {
         add_worker(pool);
         V_PRINT_ARG(MASTERWORKER, "avviato worker thread %d", pool->counter);
     }
 
-    // Pool manager va in loop aspettando le richieste di aggiuta worker e la fine dei file in input
-    //while(!stop_signal) {
-    //    if (no_more_files) stop_signal = 1;
+    //  Pool manager va in loop aspettando le richieste di aggiunta worker e fine coda
     while(!no_more_files) {
         if (usr1_signal != 0) {
             add_worker(pool);
@@ -50,37 +56,37 @@ int pool_manager() {
         }
     }
 
-    // Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
-    // Non ho più bisogno di usare il mutex del pool qui
-    worker_t *temp = pool->list;
-
-    int active_workers = 0;
+    //  Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
+    //  (Non ho più bisogno di usare il mutex del pool qui)
     V_PRINT_MSG(MASTERWORKER, "pool manager attende chiusura dei worker thread")
-    // Fa join dei worker thread ancora attivi, mentre li distrugge e li conta
+
+    worker_t *temp = pool->list;
     while (temp != NULL) {
         if (pthread_join(temp->tid, NULL)) {
             fprintf(stderr, "MasterWorker error -> errore join worker: %d\n", temp->id);
             exit(EXIT_FAILURE);
         }
-        //temp = pool->list;
         temp = temp->next;
-        //free(temp);
-
         active_workers++;
     }
 
-    // Libera la memoria di pool e coda
+    //  Libera la memoria di pool e coda
     free_pool(pool);
     free_coda(coda);
 
     V_PRINT_MSG(MASTERWORKER, "terminazione di pool manager")
 
-    // Ritorna il numero di worker attivi alla fine del pool
+    //  Ritorna il numero di worker attivi alla fine del pool
     return active_workers;
 }
 
-// Inizializza il pool con il suo mutex
+/*
+    Inizializza il pool con il suo mutex
+    @param    n  numero iniziale di worker thread
+    @return   p  puntatore al pool creato
+*/
 pool_t *init_pool(int n) {
+
     pool_t *p = malloc(sizeof(pool_t));
     ec_val(coda, NULL, "errore allocazione pool");
     pthread_mutex_init(&p->mtx, NULL);
@@ -88,11 +94,16 @@ pool_t *init_pool(int n) {
     p->counter = 0;
     p->nthread = n;
     p->list = NULL;
+
     return p;
 }
 
-// Aggiunge un nuovo worker alla lista del pool, avviandone il thread associato
+/*
+    Aggiunge un nuovo worker alla lista del pool, avviandone il thread associato
+    @param    p  puntatore al pool
+*/
 void add_worker(pool_t *p) {
+
     worker_t *w = malloc(sizeof(worker_t));
 
     pthread_mutex_lock(&p->mtx);
@@ -109,9 +120,19 @@ void add_worker(pool_t *p) {
     p->id_counter++;
     p->counter++;
     pthread_mutex_unlock(&p->mtx);
+
+    return;
 }
 
+/*
+    Rimuove un worker dalla lista del pool conoscendone il suo tid
+    @param    p    puntatore al pool
+              tid  pthread id del worker
+    @return   0    se la rimozione ha avuto successo
+              -1   altrimenti
+*/
 int rem_worker(pool_t *p, pthread_t tid) {
+
     worker_t *w;
     worker_t *prev;
 
@@ -134,20 +155,32 @@ int rem_worker(pool_t *p, pthread_t tid) {
     }
     p->counter--;
     pthread_mutex_unlock(&p->mtx);
+
     return 0;
 }
 
-// Libera la memoria della lista dei worker
+/*
+    Libera la memoria della lista dei worker
+    @param    w  puntatore alla lista dei worker
+*/
 void free_worker_list(worker_t *w) {
+
     if (w == NULL) return;
     free_worker_list(w->next);
     free(w);
+
     return;
 }
 
-// Libera la memoria del pool
+/*
+    Libera la memoria del pool
+    @param    p  puntatore al pool
+*/
 void free_pool(pool_t *p) {
+
     free_worker_list(p->list);
     pthread_mutex_destroy(&p->mtx);
     free(p);
+    
+    return;
 }

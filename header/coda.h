@@ -13,18 +13,18 @@
 #include <string.h>
 
 typedef struct task {
-    char *path;
-    struct task *next;
+    char *path;                     //  stringa che contiene il path di un file
+    struct task *next;              //  puntatore al task successivo
 } task_t;
 
 typedef struct coda {
-    pthread_mutex_t mtx;
-    pthread_cond_t not_full;
-    pthread_cond_t not_empty;
-    int size;
-    int counter;
-    int tot;
-    task_t *list;
+    pthread_mutex_t mtx;            //  mutex della coda
+    pthread_cond_t not_full;        //  var cond per l'attesa su coda piena
+    pthread_cond_t not_empty;       //  var cond per l'attesa su coda vuota
+    int size;                       //  lunghezza massima della coda
+    int counter;                    //  contatore dei task della coda
+    int tot;                        //  numero totale di task aggiunti
+    task_t *list;                   //  puntatore alla lista dei task
 } coda_t;
 
 coda_t *init_coda(int size);

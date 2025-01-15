@@ -29,25 +29,29 @@
 #define TDELAY_DEFAULT					0
 #define DNAME_PATHLEN				  255
 
+//  Variabile verbose dichiarata in utility
 extern int verbose;
 
-master_data_t *read_opt(int argc, char *argv[]);
+//  Firma delle funzioni utilizzate internamente da farm
 void usage_help(char *pname);
 
-// Funzione main del programma
+/*
+    Funzione main del programma farm
+    Analizza i dati in input, crea la struttura dati di base, crea il processo Collector
+    e continua il suo flusso di lavoro con la funzione main di Masterworker
+    @param    argc    numero di argomenti ed opzioni in ingresso
+              argv[]  lista degli argomenti ed opzioni
+    @return   0       se finisce senza errori
+*/
 int main(int argc, char *argv[]){
 
     verbose = 0;
 
-    // Analizza i parametri dati in input
+    //  Analizza i parametri dati in input
     master_data_t *data = malloc(sizeof(master_data_t));
-    
-    if (data == NULL) {
-        fprintf(stderr, "Errore allocazione master data");
-        exit(EXIT_FAILURE);
-    }
+    ec_val(data, NULL, "Errore allocazione master data");
 
-    // Inizializza i valori della struttura di Masterworker
+    //  Inizializza i valori della struttura di Masterworker
     data->nthread = NTHREAD_DEFAULT;
     data->qlen = QLEN_DEFAULT;
     data->tdelay = TDELAY_DEFAULT;
@@ -101,7 +105,7 @@ int main(int argc, char *argv[]){
                     fprintf(stderr,"Il nome directory non deve superare i 255 caratteri.\n");
                     exit_check = 1;
                 }
-                // Elimina il carattere '/' alla fine del path se è stato inserito
+                //  Elimina il carattere '/' alla fine del path se è stato inserito
                 if(data->dname[dlen-1] == '/') data->dname[dlen-1] = '\0';
 
                 DIR *dir = opendir(data->dname);
@@ -127,14 +131,13 @@ int main(int argc, char *argv[]){
         }
     }
 
-    // Esce se le opzioni in input non sono corrette
+    //  Esce se le opzioni in input non sono corrette
     if (exit_check == 1) {
         free_data(data);
         exit(EXIT_FAILURE);
     }
 
-
-    // Esce se non esistono argomenti e -d non è settato
+    //  Esce se non sono stati indicati file come argomenti e -d non è settato
 	if (data->num_file == 0 && dir_check == 0) {
 		fprintf(stderr, "Nessun argomento fornito al programma.\n");
         usage_help(argv[0]);
@@ -142,22 +145,22 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
-    // Inizializza la lista dei file passati come argomenti
+    //  Inizializza la lista dei file passati come argomenti
     data->num_file = argc - optind;
 
     data->file_list = malloc(sizeof(char *)*data->num_file);
     if (data->file_list == NULL) {
-        //perror("Errore allocazione data->file_list");
-        fprintf(stderr, "Errore allocazione data->file_list");
+        perror("Errore allocazione data->file_list");
         free_data(data);
         exit(EXIT_FAILURE);
     }
 
-    // Rimpie la lista con gli argomenti inseriti
+    //  Riempie la lista con gli argomenti inseriti
     int index = 0;
     FILE *fp;
     while (optind < argc) {
         if ((fp = fopen(argv[optind], "rb")) == NULL) {
+            //perror("Argomento non valido");
             fprintf(stderr, "Argomento non valido: %s\n", argv[optind]);
             free_data(data);
             exit(EXIT_FAILURE);
@@ -169,7 +172,7 @@ int main(int argc, char *argv[]){
         index++;
     }
 
-    // Stampa la struttura dei dati di input (con verbose)
+    //  Stampa la struttura dei dati di input (con verbose)
     if (verbose) {
         printf(ANSI_COLOR_RED "MASTER DATA\n" ANSI_COLOR_RESET);
         printf("    nthread: %d\n", data->nthread);
@@ -186,44 +189,47 @@ int main(int argc, char *argv[]){
 
     V_PRINT_MSG(FARM, "avvio");
 
-	// Creazione del processo figlio
+	//  Creazione del processo figlio
     V_PRINT_MSG(FARM, "crea processo collector");
     pid_t pid;
 	pid = fork();
 	if (pid < 0) {
-		perror("errore nella creazione del secondo processo\n");
+		perror("Errore nella creazione del secondo processo\n");
         free_data(data);
 		exit(EXIT_FAILURE);
 	}
 
 	if(pid == 0) {
-		// Figlio: Collector
-
+		//  Figlio: Collector
+        
         V_PRINT_MSG(FARM, "ha creato processo collector");
 		collector_main();
 
 	} else {
-		// Padre: MasterWorker
+		//  Padre: MasterWorker
 
-        // Attende che collector abbia avviato la connessione
+        //  Attende che collector abbia avviato la connessione
 		sleepTime(200);
 
         V_PRINT_MSG(FARM,"avvia processo main di masterworker");
 		masterWorker_main(data);
 
-        // Attende la chiusura di Collector
+        //  Attende la chiusura di Collector
 		wait(NULL);
 
         V_PRINT_MSG(FARM,"chiusura");
 	}
 
-    // Libera la memoria della struttura dei dati di Masterworker
+    //  Libera la memoria della struttura dei dati di Masterworker
     free_data(data);
 
 	return 0;
 }
 
-// Stampa un messaggio di aiuto sull'uso del programma
+/*
+    Stampa un messaggio di aiuto sull'uso del programma
+    @param    pname  nome del programma
+*/
 void usage_help(char* pname) {
     fprintf(stderr, "Usage: %s [-n nthread] [-q qlen] [-t tdelay] [-d dname] [-h] [file1 file2 ...]\n", pname);
 }

@@ -21,25 +21,34 @@
 #include "masterworker.h"
 #include "utility.h"
 
+extern int verbose;
+
 extern volatile sig_atomic_t stop_signal;
 extern volatile sig_atomic_t no_more_files;
 
 extern coda_t *coda;
 
+//  Firma delle funzioni utilizzate internamente da explorer
 void fill_coda(coda_t *coda, master_data_t *data);
 void explore_dir(coda_t *coda, long tdelay, char *dname);
 
-// Questa funzione viene chiamata dal thread dedicato che genera Masterworker
+/*
+    Questa funzione viene chiamata dal thread dedicato che genera Masterworker,
+    serve a riempire la coda concorrente finché non esaurisce i file di input
+    o non riceve uno stop dall'handler dei segnali
+    @param    arg  puntatore void che viene castato in un puntatore della struttura Data
+*/
 void *explorer (void *arg) {
+
     master_data_t *data = (master_data_t *) arg;
     
-    // Riempie la coda
+    //  Riempie la coda
     fill_coda(coda, data);
 
-    // Setta la variabile no_more_files
+    //  Setta la variabile no_more_files
     no_more_files = 1;
 
-    // Manda un segnale per sbloccare tutti i thread in attesa sulla coda vuota
+    //  Manda un segnale per sbloccare tutti i thread in attesa sulla coda vuota
     pthread_mutex_lock(&coda->mtx);
     pthread_cond_broadcast(&coda->not_empty);
     pthread_mutex_unlock(&coda->mtx);
@@ -47,28 +56,33 @@ void *explorer (void *arg) {
     pthread_exit(NULL);
 }
 
-// Funzione che esplora la directory, saltando file ., .. e nascosti
+/*
+    Riempie la coda con i fali ricevuti come argomento da farm
+    @param    coda  puntatore alla coda concorrente
+              data  puntatore alla struttura data contenente l'elenco dei file
+*/
 void fill_coda(coda_t *coda, master_data_t *data) {
+
     int index = 0;
     FILE *new_file;
     struct stat file_stat;
 
-    // Inserisce prima la lista dei file passati come argomenti
+    //  Inserisce prima la lista dei file passati come argomenti
     while (!stop_signal && index < data->num_file) {
-        // Ottiene informazioni sul file
+        //  Ottiene informazioni sul file
         if (stat(data->file_list[index], &file_stat) == -1) {
             fprintf(stderr, "Errore nell'ottenere informazioni sul file: %s\n", data->file_list[index]);
             index++;
             continue;
         }
         
-        // Se il file non è regolare lo salta
+        //  Se il file non è regolare lo salta
         if (!S_ISREG(file_stat.st_mode)) {
             index++;
             continue;
         }
 
-        // Controlla se il file è binario
+        //  Controlla se il file è binario
         new_file = fopen(data->file_list[index], "rb");
         if (new_file == NULL) {
             fprintf(stderr, "Errore apertura file: %s\n", data->file_list[index]);
@@ -77,11 +91,12 @@ void fill_coda(coda_t *coda, master_data_t *data) {
         }
         fclose(new_file);
 
-        // Attende il ritardo tdelay
+        //  Attende il ritardo tdelay
         sleepTime(data->tdelay);
 
-        // Inserisce la stringa nella coda
+        //  Inserisce la stringa nella coda
         pthread_mutex_lock(&coda->mtx);
+        //  Se la coda è piena attende che si liberi spazio
         while (coda->counter == coda->size) {
             pthread_cond_wait(&coda->not_full, &coda->mtx);
         }
@@ -94,14 +109,19 @@ void fill_coda(coda_t *coda, master_data_t *data) {
         index++;
     }
 
-    // Esplora la directory se è stata passata
+    //  Esplora la directory se è stata passata
     if (!stop_signal && data->dname != NULL) explore_dir(coda, data->tdelay, data->dname);
 
     return;
 }
 
-// Funzione che esplora una cartella e tutte le sottocartelle alla ricerca di file da aggiungere
-// alla coda
+/*
+    Funzione che esplora una cartella e tutte le sottocartelle alla ricerca di file
+    da aggiungere alla coda concorrente
+    @param    coda    puntatore alla coda concorrente
+              tdelay  tempo di ritardo per l'inserimento in coda
+              dname   nome della directory passata come argomento
+*/
 void explore_dir(coda_t *coda, long tdelay, char *dname) {
     struct dirent *entry;
     struct stat file_stat;
@@ -115,29 +135,30 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
     while (!stop_signal && (entry = readdir(dir)) != NULL) {
         char full_path[PATH_MAX_LEN];
 
-        // Salta "." e ".." e i file nascosti
+        //  Salta "." e ".." e i file nascosti
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }
 
-        // Crea il path completo
+        //  Crea il path completo
         int path_len = strlen(dname)+strlen(entry->d_name) + 2;
         snprintf(full_path, path_len, "%s/%s", dname, entry->d_name);
 
-        // Ottiene informazioni sul file
+        //  Ottiene informazioni sul file
         if (stat(full_path, &file_stat) == -1) {
             fprintf(stderr, "Errore nell'ottenere informazioni sul file: %s\n", full_path);
             continue;
         }
 
         if (S_ISDIR(file_stat.st_mode)) {
-            // Se è una directory la esplora ricorsivamente
+            //  Se è una directory la esplora ricorsivamente
             explore_dir(coda, tdelay, full_path);
         } else if (S_ISREG(file_stat.st_mode)) {
-            // Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda
+            //  Se è un file regolare attende il ritardo tdelay e lo aggiunge alla coda
             sleepTime(tdelay);
 
             pthread_mutex_lock(&coda->mtx);
+            //  Se la coda è piena attende che si liberi spazio
             while (coda->counter == coda->size) {
                 pthread_cond_wait(&coda->not_full, &coda->mtx);
             }
@@ -150,4 +171,5 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
     }
 
     closedir(dir);
+    return;
 }
