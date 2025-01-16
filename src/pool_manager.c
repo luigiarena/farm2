@@ -38,7 +38,6 @@ extern pool_t *pool;
 */
 int pool_manager() {
 
-    V_PRINT_MSG(MASTERWORKER, "avvio di pool manager\n");
     int active_workers = 0;
 
     //  Crea i worker thread iniziali
@@ -52,14 +51,12 @@ int pool_manager() {
         if (usr1_signal != 0) {
             add_worker(pool);
             usr1_signal--;
-            V_PRINT_ARG(MASTERWORKER, "aggiunto worker thread %d", pool->counter);
+            V_PRINT_ARG(MASTERWORKER, "aggiunto nuovo worker thread %d", pool->counter);
         }
     }
 
     //  Pool manager cerca di fare join con i worker thread aperti e ne distrugge la lista
     //  (Non ho più bisogno di usare il mutex del pool qui)
-    V_PRINT_MSG(MASTERWORKER, "pool manager attende chiusura dei worker thread")
-
     worker_t *temp = pool->list;
     while (temp != NULL) {
         if (pthread_join(temp->tid, NULL)) {
@@ -69,12 +66,13 @@ int pool_manager() {
         temp = temp->next;
         active_workers++;
     }
+    V_PRINT_MSG(MASTERWORKER, "pool manager ha effettuato la join con i worker rimasti attivi")
 
     //  Libera la memoria di pool e coda
     free_pool(pool);
     free_coda(coda);
 
-    V_PRINT_MSG(MASTERWORKER, "terminazione di pool manager")
+    V_PRINT_MSG(MASTERWORKER, "pool manager ha liberato la memoria e termina")
 
     //  Ritorna il numero di worker attivi alla fine del pool
     return active_workers;

@@ -66,6 +66,7 @@ void* worker_thread(void* arg) {
         //  e il primo che lo riceve lo gestisce, auto eliminandosi
         if (usr2_signal != 0) {
             if (rem_worker(pool, tid) == 0) {
+                V_PRINT_ARG(WORKER, "(%d) termina con segnale", id);
                 usr2_signal--;
                 break;
             } else {
@@ -89,6 +90,7 @@ void* worker_thread(void* arg) {
 
         //  Estrae il prossimo path dalla coda
         path = pop_coda(coda);
+        V_PRINT_ARG(WORKER, "(%d) ha estratto un task", id);
 
         //  Se il path è NULL esce dal ciclo
         if (path == NULL) break;
@@ -102,6 +104,7 @@ void* worker_thread(void* arg) {
             //  Calcola il risultato del file
             res = calc_res(path);
             if (res == -1) continue;
+            V_PRINT_ARG(WORKER, "(%d) ha elaborato un file", id);
 
             //  Invia messaggio a Collector
             pthread_mutex_lock(&socket_mtx);
@@ -112,7 +115,7 @@ void* worker_thread(void* arg) {
                 perror("Errore nell'invio del messaggio");
                 pthread_mutex_unlock(&socket_mtx);
             }
-            V_PRINT_ARG(WORKER, "(%d) ha inviato %s", id, message);
+            V_PRINT_ARG(WORKER, "(%d) ha inviato il messaggio: %s", id, message);
             memset(message, 0, BUF_MAX_SIZE);
             read(server_socket, message, BUF_MAX_SIZE);
             V_PRINT_ARG(WORKER, "(%d) ha ricevuto conferma %s", id, message);

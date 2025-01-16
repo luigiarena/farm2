@@ -131,6 +131,9 @@ int main(int argc, char *argv[]){
         }
     }
 
+    V_PRINT_MSG(FARM, "avvio");
+    V_PRINT_MSG(FARM, "analizza i dati inseriti e crea Data");
+
     //  Esce se le opzioni in input non sono corrette
     if (exit_check == 1) {
         free_data(data);
@@ -160,7 +163,6 @@ int main(int argc, char *argv[]){
     FILE *fp;
     while (optind < argc) {
         if ((fp = fopen(argv[optind], "rb")) == NULL) {
-            //perror("Argomento non valido");
             fprintf(stderr, "Argomento non valido: %s\n", argv[optind]);
             free_data(data);
             exit(EXIT_FAILURE);
@@ -187,10 +189,10 @@ int main(int argc, char *argv[]){
         printf("\n");
     }
 
-    V_PRINT_MSG(FARM, "avvio");
+    V_PRINT_MSG(FARM, "struttura data creata correttamente");
 
 	//  Creazione del processo figlio
-    V_PRINT_MSG(FARM, "crea processo collector");
+    V_PRINT_MSG(FARM, "crea processo collector (fork)");
     pid_t pid;
 	pid = fork();
 	if (pid < 0) {
@@ -202,7 +204,7 @@ int main(int argc, char *argv[]){
 	if(pid == 0) {
 		//  Figlio: Collector
         
-        V_PRINT_MSG(FARM, "ha creato processo collector");
+        V_PRINT_MSG(FARM, "fork riuscita");
 		collector_main();
 
 	} else {
@@ -211,7 +213,7 @@ int main(int argc, char *argv[]){
         //  Attende che collector abbia avviato la connessione
 		sleepTime(200);
 
-        V_PRINT_MSG(FARM,"avvia processo main di masterworker");
+        V_PRINT_MSG(FARM,"passa il flusso di lavoro a masterworker");
 		masterWorker_main(data);
 
         //  Attende la chiusura di Collector

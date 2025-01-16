@@ -55,7 +55,7 @@ void save_nworkers(int n, char *file);
 void masterWorker_main(master_data_t *data) {
 
     //  Masterworker stampa il proprio PID per segnalare il suo avvio corretto
-    V_PRINT_ARG(MASTERWORKER, "PID: %d", getpid());
+    V_PRINT_ARG(MASTERWORKER, "si avvia - PID: %d", getpid());
 
 	//  Gestisce segnali per MasterWorker
 	sigset_t mask;
@@ -85,6 +85,7 @@ void masterWorker_main(master_data_t *data) {
 
     ec_not(pthread_detach(handler_tid), 0, 
         "Masterworker -> errore detached su handler thread");
+    V_PRINT_MSG(MASTERWORKER, "avviato thread handler signals");
 
     //  Creazione socket
     struct sockaddr_un server_addr;
@@ -110,31 +111,29 @@ void masterWorker_main(master_data_t *data) {
 
     //  Inizializzazione del mutex della socket
     pthread_mutex_init(&socket_mtx, NULL);
-    V_PRINT_MSG(MASTERWORKER, "fine configurazione connessione")
+    V_PRINT_MSG(MASTERWORKER, "configurata connessione")
 
     //  Crea la coda concorrente
     coda = init_coda(data->qlen);
+    V_PRINT_MSG(MASTERWORKER, "inizializzata coda concorrente");
 
     //  Crea il pool dei Worker
     pool = init_pool(data->nthread);
+    V_PRINT_MSG(MASTERWORKER, "inizializzato pool dei worker");
 
     //  Avvia il thread Explorer che si occupererà di riempire la coda
-    V_PRINT_MSG(MASTERWORKER, "avviato explorer per il riempimento della coda");
-
     pthread_t explorer_tid;
     ec_not(pthread_create(&explorer_tid, NULL, explorer, data), 0,
         "Masterworker -> errore durante la creazione di explorer");
-
-    V_PRINT_ARG(MASTERWORKER, "thread explorer avviato: %ld\n", explorer_tid);
+    V_PRINT_MSG(MASTERWORKER, "avviato thread explorer");
 
     //  Avvia funzione che gestisce il pool e ritorna il numero di worker attivi
+    V_PRINT_MSG(MASTERWORKER, "passa il flusso di lavoro a pool manager");
     int active_workers = pool_manager();
 
-    V_PRINT_MSG(MASTERWORKER, "attende il join con explorer");
     //  Attende la chiusura di Explorer
     ec_not(pthread_join(explorer_tid, NULL), 0, "MasterWorker -> errore join explorer");
-
-    V_PRINT_MSG(MASTERWORKER, "explorer è stato terminato");
+    V_PRINT_MSG(MASTERWORKER, "effettuata join con explorer");
     
     //  Se il programma finisce senza nessun segnale ne lancio uno per
     //  chiudere correttamente l'handler in attesa
@@ -142,7 +141,7 @@ void masterWorker_main(master_data_t *data) {
     V_PRINT_MSG(MASTERWORKER, "handler è stato terminato");
 
     //  Invia messaggio di terminazione a Collector
-    V_PRINT_MSG(MASTERWORKER, "invia messaggio di chiusura al server");
+    V_PRINT_MSG(MASTERWORKER, "invio messaggio di chiusura al server");
     pthread_mutex_lock(&socket_mtx);
     if (send(server_socket, "", 0, 0) == -1) {
         perror("invio chiusura connessione");
@@ -156,6 +155,7 @@ void masterWorker_main(master_data_t *data) {
 
     //  Salvo su file il numero di thread worker attivi
     save_nworkers(active_workers, "nworkeratexit.txt");
+    V_PRINT_MSG(MASTERWORKER, "numero dei worker attivi salvato su file");
 
     V_PRINT_MSG(MASTERWORKER, "chiusura");
 
@@ -214,7 +214,7 @@ static void *handler_signals(void *arg) {
 */void save_nworkers(int n, char *file) {
 
     FILE *fp = fopen(file, "w");
-    ec_val(fp, NULL, "Errore apertura file nworker");
+    ec_val(fp, NULL, "Errore apertura file nworkeratexit");
     fprintf(fp, "%d\n", n);
     fclose(fp);
 

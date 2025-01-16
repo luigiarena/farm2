@@ -43,10 +43,12 @@ void *explorer (void *arg) {
     master_data_t *data = (master_data_t *) arg;
     
     //  Riempie la coda
+    V_PRINT_MSG(MASTERWORKER, "explorer comincia a riempire la coda");
     fill_coda(coda, data);
 
     //  Setta la variabile no_more_files
     no_more_files = 1;
+    V_PRINT_MSG(MASTERWORKER, "explorer ha terminato di aggiungere task");
 
     //  Manda un segnale per sbloccare tutti i thread in attesa sulla coda vuota
     pthread_mutex_lock(&coda->mtx);
@@ -102,6 +104,7 @@ void fill_coda(coda_t *coda, master_data_t *data) {
         }
 
         push_coda(coda, data->file_list[index]);
+        V_PRINT_MSG(MASTERWORKER, "explorer ha aggiunto un task");
 
         pthread_cond_signal(&coda->not_empty);
         pthread_mutex_unlock(&coda->mtx);
@@ -164,6 +167,7 @@ void explore_dir(coda_t *coda, long tdelay, char *dname) {
             }
 
             push_coda(coda, full_path);
+            V_PRINT_MSG(MASTERWORKER, "explorer ha aggiunto un task");
 
             pthread_cond_signal(&coda->not_empty);
             pthread_mutex_unlock(&coda->mtx);
