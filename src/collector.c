@@ -57,7 +57,7 @@ void printlist();
 void collector_main() {
 
     //  Collector stampa il proprio PID per segnalare il suo avvio corretto
-    V_PRINT_ARG(COLLECTOR, "si avvia - PID: %d", getpid());
+    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
 
     //  Maschera i segnali
     mask_signals_collector();
@@ -73,8 +73,7 @@ void collector_main() {
     if (server_socket == -1) {
         perror("Collector error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
-    }
-    V_PRINT_MSG(COLLECTOR, "socket creato");
+    } else V_PRINT_MSG(COLLECTOR, "socket creato");
 
     //  Configurazione socket
     memset(&server_addr, 0, sizeof(server_addr));
@@ -89,16 +88,14 @@ void collector_main() {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    }
-    V_PRINT_MSG(COLLECTOR, "bind socket");
+    } else V_PRINT_MSG(COLLECTOR, "bind socket");
 
     //  Listen
     if (listen(server_socket, 1) == -1                          ) {
         perror("Collector error -> listen connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    }
-    V_PRINT_MSG(COLLECTOR, "listen socket");
+    } else V_PRINT_MSG(COLLECTOR, "listen socket");
 
     //  Avvia il thread printer per la stampa parziale dei risultati
     pthread_t printer_tid;
@@ -106,10 +103,10 @@ void collector_main() {
         perror("Collector -> errore durante la creazione di printer");
         exit(EXIT_FAILURE);
     }
-    V_PRINT_MSG(COLLECTOR, "avvia thread printer");
+    V_PRINT_MSG(COLLECTOR, "printer avviato");
 
     //  Collector entra in un loop di ascolto
-    V_PRINT_MSG(COLLECTOR, "In ascolto sulla connessione socket...");
+    V_PRINT_MSG(COLLECTOR, "In ascolto...");
 
     //  Accetta connessione
     client_socket = accept(server_socket, NULL, NULL);
