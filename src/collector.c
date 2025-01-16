@@ -57,7 +57,7 @@ void printlist();
 void collector_main() {
 
     //  Collector stampa il proprio PID per segnalare il suo avvio corretto
-    V_PRINT_ARG(COLLECTOR, "PID: %d", getpid());
+    V_PRINT_ARG(COLLECTOR, "si avvia - PID: %d", getpid());
 
     //  Maschera i segnali
     mask_signals_collector();
@@ -73,7 +73,8 @@ void collector_main() {
     if (server_socket == -1) {
         perror("Collector error -> creazione socket fallita\n");
         exit(EXIT_FAILURE);
-    } else V_PRINT_MSG(COLLECTOR, "socket creato");
+    }
+    V_PRINT_MSG(COLLECTOR, "socket creato");
 
     //  Configurazione socket
     memset(&server_addr, 0, sizeof(server_addr));
@@ -88,14 +89,16 @@ void collector_main() {
         perror("Collector error -> bind connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    } else V_PRINT_MSG(COLLECTOR, "bind socket");
+    }
+    V_PRINT_MSG(COLLECTOR, "bind socket");
 
     //  Listen
     if (listen(server_socket, 1) == -1                          ) {
         perror("Collector error -> listen connessione");
         close(server_socket);
         exit(EXIT_FAILURE);
-    } else V_PRINT_MSG(COLLECTOR, "listen socket");
+    }
+    V_PRINT_MSG(COLLECTOR, "listen socket");
 
     //  Avvia il thread printer per la stampa parziale dei risultati
     pthread_t printer_tid;
@@ -103,10 +106,7 @@ void collector_main() {
         perror("Collector -> errore durante la creazione di printer");
         exit(EXIT_FAILURE);
     }
-    V_PRINT_MSG(COLLECTOR, "printer avviato");
-
-    //  Collector entra in un loop di ascolto
-    V_PRINT_MSG(COLLECTOR, "In ascolto...");
+    V_PRINT_MSG(COLLECTOR, "avvia thread printer");
 
     //  Accetta connessione
     client_socket = accept(server_socket, NULL, NULL);
@@ -116,20 +116,26 @@ void collector_main() {
         exit(EXIT_FAILURE);
     }
 
+    //  Collector entra in un loop di ascolto
+    V_PRINT_MSG(COLLECTOR, "in ascolto sulla connessione socket");
+
     while (!stop_collector) {
         //  Resetta il buffer
         memset(buffer, 0, BUF_MAX_SIZE);
         //  Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
+
         if (nread > 0) {
             //  Se il messaggio è stato ricevuto correttamente
 
+            V_PRINT_MSG(COLLECTOR, "ha ricevuto un messaggio");
             //  Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
             long res = atol(strtok(buffer, ":"));
             char *path = strtok(0, ":");
 
             //  Aggiunge i risultati alla lista
             add_res(res, path);
+            V_PRINT_MSG(COLLECTOR, "ha aggiunto un nuovo risultato");
 
             //  Manda un messaggio di conferma al client in attesa di risposta
             char ack[4] = "ACK";
@@ -145,7 +151,7 @@ void collector_main() {
         } else if (nread == 0) {
             //  Se è stato ricevuto un messaggio vuoto Collector termina
 
-            V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di stop");
+            V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di terminazione");
             stop_collector = 1;
             stop_printer = 1;
             continue;
@@ -162,17 +168,18 @@ void collector_main() {
         perror("Collector -> errore join printer");
         exit(EXIT_FAILURE);
     }
+    V_PRINT_MSG(COLLECTOR, "effettuata join con printer");
 
-    V_PRINT_MSG(COLLECTOR, "Stampa finale dei risultati");
+    V_PRINT_MSG(COLLECTOR, "stampa finale dei risultati");
     V_PRINT_TXT("-------------------------------------------");
     printlist();
     V_PRINT_TXT("-------------------------------------------");
 
-    //  Libera lo spazio della lista dei risultati
+    //  Libera lo spazio della lista dei risultati e cancella socket
     free_res(result_list);
+    unlink(SOCKET_PATH);
 
     V_PRINT_MSG(COLLECTOR, "chiusura");
-    unlink(SOCKET_PATH);
 
     return;
 }
