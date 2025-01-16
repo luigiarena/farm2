@@ -108,6 +108,9 @@ void collector_main() {
     }
     V_PRINT_MSG(COLLECTOR, "avvia thread printer");
 
+    //  Collector entra in un loop di ascolto
+    V_PRINT_MSG(COLLECTOR, "In ascolto sulla connessione socket...");
+
     //  Accetta connessione
     client_socket = accept(server_socket, NULL, NULL);
     if (client_socket == -1) {
@@ -116,26 +119,20 @@ void collector_main() {
         exit(EXIT_FAILURE);
     }
 
-    //  Collector entra in un loop di ascolto
-    V_PRINT_MSG(COLLECTOR, "in ascolto sulla connessione socket");
-
     while (!stop_collector) {
         //  Resetta il buffer
         memset(buffer, 0, BUF_MAX_SIZE);
         //  Ricezione del messaggio
         nread = read(client_socket, buffer, sizeof(buffer) - 1);
-
         if (nread > 0) {
             //  Se il messaggio è stato ricevuto correttamente
 
-            V_PRINT_MSG(COLLECTOR, "ha ricevuto un messaggio");
             //  Fa il parsing del messaggio ricevuto per salvare i valori ricevuti
             long res = atol(strtok(buffer, ":"));
             char *path = strtok(0, ":");
 
             //  Aggiunge i risultati alla lista
             add_res(res, path);
-            V_PRINT_MSG(COLLECTOR, "ha aggiunto un nuovo risultato");
 
             //  Manda un messaggio di conferma al client in attesa di risposta
             char ack[4] = "ACK";
@@ -151,7 +148,7 @@ void collector_main() {
         } else if (nread == 0) {
             //  Se è stato ricevuto un messaggio vuoto Collector termina
 
-            V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di terminazione");
+            V_PRINT_MSG(COLLECTOR, "ricevuta richiesta di stop");
             stop_collector = 1;
             stop_printer = 1;
             continue;
@@ -168,18 +165,17 @@ void collector_main() {
         perror("Collector -> errore join printer");
         exit(EXIT_FAILURE);
     }
-    V_PRINT_MSG(COLLECTOR, "effettuata join con printer");
 
-    V_PRINT_MSG(COLLECTOR, "stampa finale dei risultati");
+    V_PRINT_MSG(COLLECTOR, "Stampa finale dei risultati");
     V_PRINT_TXT("-------------------------------------------");
     printlist();
     V_PRINT_TXT("-------------------------------------------");
 
-    //  Libera lo spazio della lista dei risultati e cancella socket
+    //  Libera lo spazio della lista dei risultati
     free_res(result_list);
-    unlink(SOCKET_PATH);
 
     V_PRINT_MSG(COLLECTOR, "chiusura");
+    unlink(SOCKET_PATH);
 
     return;
 }
